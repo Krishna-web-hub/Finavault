@@ -130,4 +130,19 @@ def get_engine() -> Engine:
 
 
 def init_db(engine: Engine | None = None) -> None:
+    """Creates any missing tables directly from `metadata`.
+
+    The development and test path only. It is idempotent and needs no
+    Alembic config, which is what makes it right for a throwaway database —
+    but it can only ever *create*: it will not add a column to a table that
+    already exists, so a database built this way silently diverges from the
+    models the moment one changes.
+
+    Every other environment goes through `finvault-migrate` (see
+    `finvault/migrate.py`), which applies the reviewed revisions in
+    `migrations/versions/` and then installs the RLS policies. The two stay
+    in step because CI autogenerates against the same `metadata` and fails
+    if that produces a non-empty diff (see .github/workflows/ci.yml), so a
+    Table edited here without a matching revision does not reach main.
+    """
     metadata.create_all(engine or get_engine())

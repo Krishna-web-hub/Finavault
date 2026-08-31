@@ -3,6 +3,11 @@ name = "finvault"
 version = "0.1.0"
 description = "Secure multi-agent RAG platform for finance — encrypted at rest, ACL-gated retrieval, guardrailed agent orchestration on Claude."
 requires-python = ">=3.11"
+# PEP 639 SPDX form. Needs setuptools>=77, which the build-system floor below
+# pins for exactly this reason — the older `{text = "MIT"}` table is deprecated
+# and emits a build warning on current setuptools.
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "openai>=1.50.0",
     "qdrant-client>=1.12.0,<1.14.0",  # keep within Qdrant's compatibility window of the pinned v1.12.4 server image
@@ -21,6 +26,9 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "redis>=5.0.0",
     "prometheus-client>=0.21.0",
+    # A runtime dependency, not a dev one: the Helm pre-install Job runs
+    # `alembic upgrade head` from this same image (deploy/helm/.../migration-job.yaml).
+    "alembic>=1.14.0",
 ]
 
 [project.optional-dependencies]
@@ -30,8 +38,19 @@ dev = [
     "ruff>=0.8.0",
 ]
 
+[project.scripts]
+# The Helm pre-install Job's whole command line. A console script rather
+# than an inline `python -c` block so the migration path is code that
+# lint and tests can see, not a string inside a YAML template.
+finvault-migrate = "finvault.migrate:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+# script.py.mako is not a .py file, so it is not picked up as package
+# code — without it `alembic revision` fails from an installed copy.
+"finvault.migrations" = ["script.py.mako", "README"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
@@ -84,5 +103,5 @@ ignore = [
 quote-style = "double"
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"

@@ -167,7 +167,12 @@ class Settings(BaseSettings):
     # NOT the owner and has no way to exempt itself. Set this False in any
     # deployment with RLS on and run schema creation as a separate migration
     # step under the owning role (the Helm chart ships a pre-install Job that
-    # does exactly that).
+    # runs `finvault-migrate` to do exactly that).
+    #
+    # Note the asymmetry: create_all can only add missing tables, so leaving
+    # this True in a long-lived database means schema changes land only for
+    # whoever creates it fresh. Migrations are the path that alters an
+    # existing one — see finvault/migrate.py.
     finvault_auto_create_schema: bool = True
 
     # --- Metrics (see metrics.py) ---

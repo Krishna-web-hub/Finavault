@@ -50,6 +50,8 @@ src/finvault/
 ├── cache.py              # Cache interface + Redis + in-memory; tenant-scoped keys
 ├── config.py            # deployment-agnostic settings (env-driven)
 ├── db.py                 # Postgres schema: documents, audit_log
+├── migrate.py            # `finvault-migrate` — applies revisions, then installs RLS policies
+├── migrations/           # Alembic environment + reviewed revisions (ships with the package)
 ├── models.py              # Classification, Role, User, Document, Chunk, ...
 ├── security/
 │   ├── encryption.py     # KeyProvider interface + LocalKeyProvider, envelope AES-256-GCM
@@ -214,6 +216,43 @@ unreachable, requests are allowed and a `failed_open` metric fires. Refusing
 everything because a counter is down would turn a cache outage into the very
 denial of service the limiter exists to prevent.
 
+### Schema migrations (`src/finvault/migrate.py`)
+
+Alembic, with the revisions living **inside the package** (`finvault/migrations/`)
+rather than in a top-level directory — the Helm pre-install Job runs out of the
+application image, which has the installed package and not the repo layout.
+
+```bash
+alembic upgrade head                 # apply (reads POSTGRES_DSN via config.settings)
+alembic revision --autogenerate -m "add retention_until"
+alembic downgrade -1                 # step back one
+alembic -x url=postgresql://... upgrade head   # override the target database
+```
+
+`alembic.ini` deliberately carries no `sqlalchemy.url`: `env.py` reads the DSN
+from `config.settings`, so the connection string lives in one place and a
+checked-in file never holds a credential.
+
+Two paths build the schema, and the split is the point:
+
+| | Path | Can it alter an existing table? |
+|---|---|---|
+| Dev / tests | `FINVAULT_AUTO_CREATE_SCHEMA=true` → `metadata.create_all` | **No** — creates missing tables only |
+| Everywhere else | `finvault-migrate` → `alembic upgrade head`, then RLS policies | Yes |
+
+`create_all` is kept because a throwaway database should not need Alembic
+config, but it can only ever create — which is exactly how a schema change
+ends up working on a laptop and nowhere else. CI closes that gap: the
+integration job applies the migrations to a scratch database and runs
+`alembic check`, so editing a `Table` in `db.py` without writing a revision
+fails the build. `tests/test_migrations.py` asserts the stronger property
+directly — that the migrated schema and `metadata` reflect identically.
+
+RLS policies are **not** in a migration. They are re-derived idempotently from
+`RLS_TABLES` on every deploy, which keeps a policy change from needing a
+revision and keeps `verify_isolation()` the single authority on whether
+isolation is actually in force. `finvault-migrate` runs both steps in order.
+
 ### Row Level Security (`src/finvault/security/rls.py`)
 
 Tenant isolation the *database* enforces. With policies installed, a query that
@@ -231,7 +270,8 @@ and refuses to serve when either fails:
 2. **That role must not own the tables** — plain `ENABLE` exempts an owner, so
    `FORCE ROW LEVEL SECURITY` is set too, and schema creation moves to a
    separate migration run as the owner (`FINVAULT_AUTO_CREATE_SCHEMA=false`;
-   the Helm chart ships a pre-install Job).
+   the Helm chart ships a pre-install Job that runs `finvault-migrate` — see
+   [Schema migrations](#schema-migrations-srcfinvaultmigratepy)).
 
 Any code path without a request behind it must declare its scope with
 `org_scope(org_id)` — scripts, jobs, evaluation harnesses. Forgetting shows
@@ -294,7 +334,9 @@ data key; without it, every stored document is permanently unreadable.
 Four jobs: `ruff check` + `ruff format --check`; pytest on 3.11 and 3.12; an
 integration job with Postgres and Redis service containers (the only place the
 RLS tests actually execute — a policy never run against a real database is a
-policy nobody has verified); and an advisory dependency audit.
+policy nobody has verified, and the same job applies the migrations to a
+scratch database and runs `alembic check` for model/migration drift); and an
+advisory dependency audit.
 
 ## Key design decisions
 
@@ -326,3 +368,7 @@ Explicitly out of scope for this pass:
 - **Multi-agent-of-agents, cloud deployment manifests** — not built this pass.
 
 **Next phase (per the project's stated direction):** once this foundation is proven out, the agent scaffolding here becomes the base for a broader agent operating system — more agent types and workflows beyond finance RAG, built on the same `Agent`/tool/guardrail primitives.
+
+## License
+
+[MIT](LICENSE) — Copyright (c) 2026 Krishna-web-hub.

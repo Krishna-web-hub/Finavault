@@ -35,33 +35,17 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          command:
-            - python
-            - -c
-            - |
-              # Runs as the OWNING role, which is the only role that can
-              # create tables and install policies. The application itself
-              # connects as a different, non-owner role precisely so the
-              # policies apply to it — see security/rls.py.
-              import os
-              from sqlalchemy import create_engine
-              from finvault.db import init_db
-              from finvault.observability import configure_logging, get_logger
-              from finvault.security.rls import enable_row_level_security, verify_isolation
-
-              configure_logging()
-              log = get_logger("finvault.migrate")
-
-              engine = create_engine(os.environ["POSTGRES_DSN"], future=True)
-              init_db(engine)
-              log.info("schema_created")
-
-              if os.environ.get("FINVAULT_ENABLE_RLS", "").lower() in {"1", "true", "yes"}:
-                  enable_row_level_security(engine)
-                  # Verified from here only as far as the table flags go; the
-                  # owner is expected to bypass, so the authoritative check is
-                  # the app's own startup verification under its real role.
-                  log.info("rls_installed", extra={"tables": sorted(verify_isolation(engine))})
+          # Runs as the OWNING role, which is the only role that can create
+          # tables and install policies. The application itself connects as a
+          # different, non-owner role precisely so the policies apply to it —
+          # see security/rls.py.
+          #
+          # `finvault-migrate` is a console script in the image (it applies
+          # Alembic revisions to head, then installs the RLS policies) rather
+          # than an inline `python -c` block, so this deployment path is code
+          # that lint and tests can see instead of a string inside a template.
+          # See src/finvault/migrate.py.
+          command: ["finvault-migrate"]
           env:
             - name: POSTGRES_OWNER_PASSWORD
               valueFrom:
