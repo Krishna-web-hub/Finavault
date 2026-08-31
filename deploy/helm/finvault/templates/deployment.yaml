@@ -1,0 +1,181 @@
+{{- include "finvault.validateSecrets" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "finvault.fullname" . }}
+  labels:
+    {{- include "finvault.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  {{- /* replicas is omitted entirely when the HPA is on: leaving it set means
+         every `helm upgrade` resets the count to the chart's value, undoing
+         whatever the autoscaler had decided moments earlier. */}}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "finvault.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "finvault.labels" . | nindent 8 }}
+      annotations:
+        # Roll the pods when configuration changes. Without this a `helm
+        # upgrade` that only edits the ConfigMap leaves every pod running the
+        # old values — the config is "deployed" but not in effect, which is
+        # among the most confusing states to debug.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "finvault.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      # In-flight requests can be long (several LLM calls), so a terminating
+      # pod is given real time to finish rather than the 30s default, which
+      # would cut answers off mid-generation during any rollout.
+      terminationGracePeriodSeconds: 120
+
+      initContainers:
+        # The master key arrives as an env var from the Secret but has to be a
+        # file on disk, because KeyProvider reads a path
+        # (security/encryption.py). Writing it here rather than in the app
+        # keeps the application from ever needing write access to a directory
+        # it also reads keys from.
+        - name: write-master-key
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              printf '%s' "$FINVAULT_MASTER_KEY" > /var/run/finvault/master.key
+              chmod 0400 /var/run/finvault/master.key
+          env:
+            - name: FINVAULT_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "finvault.secretName" . }}
+                  key: FINVAULT_MASTER_KEY
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: keys
+              mountPath: /var/run/finvault
+
+      containers:
+        - name: finvault
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: {{ include "finvault.fullname" . }}-config
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "finvault.secretName" . }}
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DSN
+              # $(POSTGRES_PASSWORD) is expanded by the kubelet from the
+              # variable declared above it, so the password never appears in
+              # the ConfigMap or in `kubectl describe pod`.
+              value: {{ include "finvault.postgresDsn" . | quote }}
+            - name: FINVAULT_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "finvault.secretName" . }}
+                  key: FINVAULT_JWT_SECRET
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "finvault.secretName" . }}
+                  key: LLM_API_KEY
+
+          # Three probes, three different questions:
+          #  - startup:   "has the model finished loading?" — generous, and it
+          #               suppresses the other two until it passes, which is
+          #               what stops a slow cold start from looking like a
+          #               crash loop.
+          #  - readiness: "should traffic go here right now?"
+          #  - liveness:  "is this process wedged?" — the only one that
+          #               restarts the pod, so it is the most conservative.
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          volumeMounts:
+            - name: keys
+              mountPath: /var/run/finvault
+              readOnly: true
+            # readOnlyRootFilesystem means every path the process writes to
+            # needs an explicit volume. These are the three: uploads spool to
+            # a temp file (api/uploads.py), and sentence-transformers caches
+            # model weights under HF_HOME.
+            - name: tmp
+              mountPath: /tmp
+            - name: model-cache
+              mountPath: /home/finvault/.cache
+
+      volumes:
+        - name: keys
+          emptyDir:
+            # tmpfs: the unwrapped master key never touches a disk that
+            # outlives the pod.
+            medium: Memory
+            sizeLimit: 1Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ mul .Values.config.maxUploadSizeMb 4 }}Mi
+        - name: model-cache
+          emptyDir:
+            sizeLimit: 2Gi
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

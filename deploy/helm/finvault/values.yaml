@@ -1,0 +1,259 @@
+# Default values for FinVault.
+#
+# The defaults here are deliberately *not* production-ready in one respect:
+# every secret is empty, and the chart refuses to render without them (see
+# templates/_helpers.tpl). A chart that ships a working default JWT secret is
+# a chart that gets deployed with a working default JWT secret.
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/your-org/finvault
+  # Empty means "use .Chart.AppVersion", so an upgrade to a new chart version
+  # deploys the matching image without a values change.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  # The pods make no Kubernetes API calls. Mounting a token they never use
+  # only gives a compromised container a credential to work with.
+  automountServiceAccountToken: false
+
+podAnnotations: {}
+
+# Container hardening. Every one of these is refused by default by many
+# admission policies if absent, and each closes a real escalation path.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations:
+    # /query holds a connection open for the length of several LLM calls, and
+    # /query/stream streams SSE for even longer. The default 60s proxy read
+    # timeout cuts both off mid-answer — a failure that looks like an
+    # application bug and is not.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    # Server-Sent Events require unbuffered proxying, or the client receives
+    # the whole stream at once when it completes — which defeats the point.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+  hosts:
+    - host: finvault.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  # The floor is set by the embedding model, not by request volume: each
+  # replica loads sentence-transformers into its own memory. Under-requesting
+  # memory here gets pods OOMKilled during the first query, not at startup,
+  # because the model loads lazily on first use.
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    # No CPU limit on purpose: CFS throttling on a latency-sensitive service
+    # produces long, hard-to-diagnose p99 tails. The request reserves the
+    # share; the limit would only cap the headroom.
+    memory: 4Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  # No memory target: memory here is dominated by the resident model, which
+  # is roughly constant per pod and unrelated to load. Scaling on it would
+  # add replicas that each allocate another copy of the same model —
+  # increasing total memory in response to high memory.
+  behavior:
+    scaleDown:
+      # LLM-backed traffic is bursty. Scaling down eagerly means paying the
+      # model-load cold start again minutes later.
+      stabilizationWindowSeconds: 600
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 180
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+
+# One replica may always be taken down for a node drain; below minAvailable
+# the drain blocks. With replicaCount 2 this keeps one serving at all times.
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    # Soft, not required: on a small cluster a hard rule leaves replicas
+    # Pending forever rather than merely co-located.
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: finvault
+
+# --- Application configuration (becomes the ConfigMap) ---
+config:
+  model: nvidia/nemotron-3-super-120b-a12b:free
+  maxTokens: 4096
+  maxTokensPerRequest: 40000
+  embeddingModel: BAAI/bge-small-en-v1.5
+  logLevel: INFO
+  logFormat: json
+  allowedExternalClassifications: public,internal,confidential
+  maxUploadSizeMb: 20
+
+  # Tenant isolation enforced by Postgres itself. On in the chart's defaults
+  # because a production deployment is exactly where it belongs — but read
+  # security/rls.py first: with policies installed, any code path lacking an
+  # org in context reads back empty.
+  enableRls: true
+
+  # The application never creates its own tables here. It cannot: creating a
+  # table makes you its owner, and an owner is exempt from RLS unless FORCE
+  # is set — so the role that runs migrations and the role that serves
+  # traffic must be different accounts. The migration Job below has the DDL
+  # rights; the application deliberately does not.
+  autoCreateSchema: false
+
+  rateLimit:
+    enabled: true
+    perMinute: 20
+    perHour: 200
+    anonymousPerMinute: 10
+
+  cache:
+    enableQueryCache: true
+    queryCacheTtlSeconds: 300
+    enableEmbeddingCache: true
+    embeddingCacheTtlSeconds: 604800
+
+  # Per-million-token rates, for the spend metric. Zero renders a flat cost
+  # panel, which is the honest signal for "not configured" — a guessed rate
+  # on a cost dashboard is worse than an obvious zero.
+  pricing:
+    inputPerMillion: 0.0
+    outputPerMillion: 0.0
+
+# --- Schema migration ---
+# A pre-install/pre-upgrade Helm hook that creates the schema and installs the
+# RLS policies, running as the *owning* database role. Separate from the app
+# for the reason above: the two roles have deliberately different privileges,
+# and collapsing them would let the application exempt itself from the
+# policies it is subject to.
+migration:
+  enabled: true
+  owner: finvault
+
+# --- External dependencies ---
+# Connection info only. See the note in Chart.yaml on why these are not
+# subcharts.
+postgres:
+  # The application must NOT connect as a superuser or as the tables' owner:
+  # both bypass Row Level Security unless FORCE is set, and relying on FORCE
+  # alone means one missed ALTER TABLE silently disables tenant isolation.
+  host: postgres.finvault.svc.cluster.local
+  port: 5432
+  database: finvault
+  user: finvault_app
+
+qdrant:
+  url: http://qdrant.finvault.svc.cluster.local:6333
+  collection: finvault_chunks
+
+redis:
+  enabled: true
+  url: redis://redis.finvault.svc.cluster.local:6379/0
+  timeoutSeconds: 0.25
+
+# --- Secrets ---
+# Two ways to supply them, and the chart fails to render if neither is used.
+secrets:
+  # (a) Reference a Secret you created out of band — the right answer when an
+  # external-secrets operator or a cloud secret manager owns them.
+  existingSecret: ""
+
+  # (b) Let the chart create the Secret from these values. Convenient for a
+  # first deployment; note that whatever you put here lands in the Helm
+  # release, which is itself stored in a Secret in the cluster.
+  create: false
+  jwtSecret: ""
+  llmApiKey: ""
+  # The application role's password (postgres.user — a non-superuser that
+  # does not own the tables).
+  postgresPassword: ""
+  # The owning role's password, used only by the migration Job. Kept separate
+  # so long-lived application pods never hold DDL credentials.
+  postgresOwnerPassword: ""
+  # The KEK that wraps every per-chunk data key (security/encryption.py).
+  # Losing it means every stored document is permanently unreadable — back it
+  # up somewhere the cluster cannot delete, before the first ingest.
+  masterKey: ""
+
+# --- Monitoring ---
+serviceMonitor:
+  # Requires the Prometheus Operator's CRDs. Off by default so `helm install`
+  # into a cluster without them does not fail on an unknown resource kind.
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+
+# --- Probes ---
+# /health reports cache degradation without failing (see routes.health): a
+# Redis blip must not make Kubernetes restart a working pod.
+probes:
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  startup:
+    # Generous: the first request downloads and loads the embedding model.
+    # 30 × 10s = 5 minutes before the pod is declared failed, which is what
+    # keeps a cold image pull from looking like a crash loop.
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    failureThreshold: 30

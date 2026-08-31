@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FinVault</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%92%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #121821;
+    --panel-2: #0e141b;
+    --panel-border: #232b36;
+    --text: #e6edf3;
+    --text-dim: #8b98a5;
+    --text-faint: #5c6773;
+    --accent: #4f8cff;
+    --accent-dim: #2c4a80;
+    --accent-glow: rgba(79, 140, 255, 0.18);
+    --danger: #ff5c5c;
+    --success: #3ecf8e;
+    --warn: #ffb84f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #26303c; border-radius: 999px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: #33404f; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px; border-bottom: 1px solid var(--panel-border);
+    background: var(--panel);
+  }
+  header h1 {
+    font-size: 18px; margin: 0; display:flex; align-items:center; gap:9px; letter-spacing: -.01em;
+  }
+  header h1 .lock {
+    display:inline-flex; align-items:center; justify-content:center;
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent-glow), transparent);
+    filter: drop-shadow(0 0 6px var(--accent-glow));
+  }
+  .session-info { font-size: 13px; color: var(--text-dim); display:flex; gap:10px; align-items:center; }
+  .badge {
+    padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .badge.role-viewer { background:#2c3a4f; color:#9fc4ff; }
+  .badge.role-analyst { background:#2c4a3f; color:#7fe0b8; }
+  .badge.role-compliance_officer { background:#4a3a2c; color:#ffcf8f; }
+  .badge.role-admin { background:#4a2c3a; color:#ff9fc4; }
+
+  button { cursor: pointer; font-family: inherit; }
+  .btn {
+    background: var(--accent); color: white; border: none; border-radius: 8px;
+    padding: 9px 16px; font-size: 14px; font-weight: 600; transition: background .15s, transform .1s;
+  }
+  .btn:hover:not(:disabled) { background: #3f78e0; }
+  .btn:active:not(:disabled) { transform: scale(.97); }
+  .btn:disabled { background: #2a323d; color: var(--text-faint); cursor: not-allowed; }
+  .btn.secondary { background: transparent; border: 1px solid var(--panel-border); color: var(--text-dim); }
+  .btn.secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--text); background: rgba(79,140,255,0.06); }
+  .btn.small { padding: 5px 11px; font-size: 12px; }
+
+  input[type="text"], select {
+    background: var(--panel-2); border: 1px solid var(--panel-border); color: var(--text);
+    padding: 9px 12px; border-radius: 8px; font-size: 14px; width: 100%;
+    font-family: inherit; transition: border-color .15s, box-shadow .15s;
+  }
+  input[type="text"]:focus, select:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  input[type="text"]::placeholder { color: var(--text-faint); }
+  label { font-size: 11px; color: var(--text-dim); display:block; margin-bottom: 6px; text-transform: uppercase; letter-spacing:.05em; font-weight: 600; }
+
+  #login-screen {
+    display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 57px);
+    animation: fadeIn .3s ease;
+  }
+  .login-card {
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 16px;
+    padding: 32px; width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  }
+  .login-card h2 { margin-top: 0; font-size: 21px; }
+  .login-card p.sub { color: var(--text-dim); font-size: 13px; margin-top: -8px; margin-bottom: 24px; line-height: 1.5; }
+  .field { margin-bottom: 16px; }
+  .login-note {
+    margin-top: 20px; font-size: 12px; color: var(--text-dim); line-height: 1.6;
+    padding: 12px 14px; background: var(--panel-2); border-radius: 10px; border: 1px solid var(--panel-border);
+  }
+
+  #app-screen { display: none; grid-template-columns: 320px 1fr; gap: 0; height: calc(100vh - 57px); }
+  #app-screen.active { display: grid; animation: fadeIn .3s ease; }
+  .panel { border-right: 1px solid var(--panel-border); overflow-y: auto; padding: 20px; background: var(--panel); }
+  .panel h3 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint);
+    margin: 26px 0 12px; font-weight: 700;
+  }
+  .panel h3:first-child { margin-top: 0; }
+
+  .file-picker {
+    border: 1.5px dashed var(--panel-border); border-radius: 10px; padding: 16px;
+    text-align: center; cursor: pointer; transition: border-color .15s, background .15s; position: relative;
+  }
+  .file-picker:hover { border-color: var(--accent); background: rgba(79,140,255,0.04); }
+  .file-picker input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .file-picker .fp-icon { font-size: 20px; margin-bottom: 4px; }
+  .file-picker .fp-text { font-size: 12px; color: var(--text-dim); }
+  .file-picker .fp-name { font-size: 12px; color: var(--text); font-weight: 600; word-break: break-all; }
+
+  .doc-item {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--panel-border);
+    border-radius: 9px; margin-bottom: 8px; font-size: 13px;
+    animation: slideIn .25s ease;
+  }
+  .doc-item .doc-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .class-tag {
+    font-size: 10px; padding: 3px 7px; border-radius: 5px; font-weight: 700; text-transform: uppercase;
+    flex-shrink: 0; letter-spacing: .02em;
+  }
+  .class-tag.public { background:#22364a; color:#7ec8ff; }
+  .class-tag.internal { background:#233a2c; color:#8fe0ab; }
+  .class-tag.confidential { background:#3a2c23; color:#ffbb8f; }
+  .class-tag.restricted { background:#3a2323; color:#ff9f9f; }
+
+  #chat-column { display: flex; flex-direction: column; height: 100%; min-width: 0; }
+  #chat-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px; border-bottom: 1px solid var(--panel-border); min-height: 20px;
+  }
+  #chat-header .title { font-size: 12px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+
+  #messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+  .msg { max-width: 680px; animation: slideIn .25s ease; }
+  .msg.user { align-self: flex-end; }
+  .msg.assistant { align-self: flex-start; }
+  .msg .bubble {
+    padding: 14px 16px; border-radius: 14px; font-size: 14.5px; line-height: 1.6;
+  }
+  .msg.user .bubble { background: var(--accent-dim); border: 1px solid #3a5c99; border-bottom-right-radius: 4px; }
+  .msg.assistant .bubble { background: var(--panel-2); border: 1px solid var(--panel-border); border-bottom-left-radius: 4px; }
+  .msg.assistant.blocked .bubble { border-color: var(--danger); background: #221415; }
+  .msg.assistant.pending .bubble { color: var(--text-dim); }
+
+  .bubble p { margin: 0 0 10px; }
+  .bubble p:last-child { margin-bottom: 0; }
+  .bubble ul { margin: 6px 0 10px; padding-left: 20px; }
+  .bubble ul:last-child { margin-bottom: 0; }
+  .bubble li { margin-bottom: 4px; }
+  .bubble strong { color: #fff; font-weight: 700; }
+  .bubble code {
+    background: rgba(255,255,255,.08); padding: 1px 6px; border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+  }
+
+  .msg-meta {
+    font-size: 11px; color: var(--text-faint); margin-top: 6px; display: flex; gap: 8px;
+    flex-wrap: wrap; align-items: center; padding: 0 2px;
+  }
+  .msg.user .msg-meta { justify-content: flex-end; }
+  .msg-meta .timestamp { font-variant-numeric: tabular-nums; }
+  .flag { padding: 2px 8px; border-radius: 999px; font-weight: 600; letter-spacing: .01em; }
+  .flag.block { background: #3a1f1f; color: var(--danger); }
+  .flag.guardrail { background: #3a2f1f; color: var(--warn); }
+  .flag.clean { background: #1f3a2b; color: var(--success); }
+
+  #composer-wrap { border-top: 1px solid var(--panel-border); background: var(--panel); padding: 14px 24px 16px; }
+  #composer { display: flex; gap: 10px; }
+  #composer input { flex: 1; }
+  #composer-hint { font-size: 11px; color: var(--text-faint); margin-top: 8px; text-align: center; }
+
+  .empty-state { color: var(--text-faint); font-size: 13px; text-align: center; padding: 48px 24px; line-height: 1.6; }
+  .empty-state .es-icon { font-size: 28px; margin-bottom: 10px; display: block; opacity: .5; }
+
+  .spinner {
+    display:inline-block; width:13px; height:13px; border:2px solid var(--panel-border);
+    border-top-color: var(--accent); border-radius:50%; animation: spin .7s linear infinite;
+    vertical-align: -2px; margin-right: 2px;
+  }
+  .elapsed { color: var(--text-faint); font-variant-numeric: tabular-nums; margin-left: 4px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .error-banner {
+    background:#2a1414; border:1px solid var(--danger); color:#ff9f9f; padding:10px 14px;
+    border-radius:8px; font-size:13px; margin-bottom:16px; animation: slideIn .2s ease;
+  }
+  .success-banner {
+    background:#122a1e; border:1px solid var(--success); color:#8fe0ab; padding:8px 12px;
+    border-radius:8px; font-size:12px; margin-bottom:12px; animation: slideIn .2s ease;
+  }
+  .hint { font-size: 11px; color: var(--text-faint); margin-top: 5px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="lock">🔒</span> FinVault Visual Platform</h1>
+  <div class="view-tabs" id="view-tabs" style="display:none; gap:6px;">
+    <button class="btn small tab-btn active" id="tab-chat">💬 Chat</button>
+    <button class="btn secondary small tab-btn" id="tab-graph">🕸️ Knowledge Graph</button>
+    <button class="btn secondary small tab-btn" id="tab-dag">⚡ Execution DAG</button>
+    <button class="btn secondary small tab-btn" id="tab-heatmap">📊 Risk Heatmap</button>
+    <button class="btn secondary small tab-btn" id="tab-compliance" style="display:none;">🛡️ Compliance Review</button>
+  </div>
+  <div class="session-info" id="session-info" style="display:none;">
+    <span id="session-user"></span>
+    <span class="badge" id="session-role"></span>
+    <span id="session-org"></span>
+    <button class="btn secondary small" id="clear-btn" title="Clear conversation">Clear chat</button>
+    <button class="btn secondary small" id="logout-btn">Sign out</button>
+  </div>
+</header>
+
+
+<div id="login-screen">
+  <div class="login-card">
+    <h2>Sign in</h2>
+    <p class="sub">Dev/demo authentication — issues a scoped JWT for the role you select.</p>
+    <div id="login-error"></div>
+    <div class="field">
+      <label>Username</label>
+      <input id="login-username" type="text" placeholder="dana" value="dana">
+    </div>
+    <div class="field">
+      <label>Role</label>
+      <select id="login-role">
+        <option value="viewer">Viewer</option>
+        <option value="analyst" selected>Analyst</option>
+        <option value="compliance_officer">Compliance Officer</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Organization ID</label>
+      <input id="login-org" type="text" placeholder="acme-capital" value="acme-capital">
+    </div>
+    <button class="btn" id="login-btn" style="width:100%;">Sign in</button>
+    <div class="login-note">
+      Your role determines what classification tiers you can retrieve (Viewer: public/internal · Analyst: +confidential · Compliance Officer/Admin: +restricted) and every retrieval is scoped to your organization ID.
+    </div>
+  </div>
+</div>
+
+<div id="app-screen">
+  <div class="panel" id="docs-panel">
+    <h3>Upload a document</h3>
+    <label class="file-picker" id="file-picker">
+      <input type="file" id="doc-file">
+      <span class="fp-icon">📄</span>
+      <div class="fp-text" id="fp-text">Click to choose a file</div>
+    </label>
+    <div class="field" style="margin-top:14px;">
+      <label>Classification</label>
+      <select id="doc-classification">
+        <option value="public">Public</option>
+        <option value="internal" selected>Internal</option>
+        <option value="confidential">Confidential</option>
+        <option value="restricted">Restricted</option>
+      </select>
+      <div class="hint">Your role must have clearance to ingest at this tier.</div>
+    </div>
+    <button class="btn" id="upload-btn" style="width:100%; margin-top:12px;">Upload &amp; ingest</button>
+    <div id="upload-status" style="margin-top:12px;"></div>
+    <h3>Ingested this session</h3>
+    <div id="doc-list"><div class="empty-state">No documents uploaded yet.</div></div>
+  </div>
+
+  <div id="chat-column">
+    <div id="chat-header"><span class="title">Ask FinVault</span></div>
+    <div id="messages">
+      <div class="empty-state">
+        <span class="es-icon">💬</span>
+        Ask a question about the ingested documents.<br>Every answer passes through retrieval → analysis → compliance review before it reaches you.
+      </div>
+    </div>
+    <div id="composer-wrap">
+      <div id="composer">
+        <input type="text" id="chat-input" placeholder="What was Q3 revenue growth?" autocomplete="off">
+        <button class="btn" id="send-btn">Send</button>
+      </div>
+      <div id="composer-hint">Free-tier model — answers can take 30–60s. Please be patient.</div>
+    </div>
+  </div>
+
+  <!-- Exclusive Visual Canvases -->
+  <div id="canvas-column" style="display:none; flex:1; flex-direction:column; padding:24px; background:var(--panel-2); overflow-y:auto;">
+    <!-- Knowledge Graph Canvas -->
+    <div id="canvas-graph-view" class="canvas-view" style="display:none;">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div>
+          <h2 style="margin:0; font-size:18px;">🕸️ Multi-Agent Entity Knowledge Graph</h2>
+          <p style="color:var(--text-dim); font-size:13px; margin:4px 0 0;">Extracted entity relationships across documents with security clearance tags.</p>
+        </div>
+        <button class="btn secondary small" id="load-full-graph-btn">Load full org graph</button>
+      </div>
+      <div id="graph-container" style="min-height:420px; background:var(--panel); border:1px solid var(--panel-border); border-radius:12px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; padding:20px; margin-top:12px;">
+        <div class="empty-state">Run a query, or load the full org graph, to see extracted entities.</div>
+      </div>
+    </div>
+
+    <!-- Execution DAG Trace Canvas -->
+    <div id="canvas-dag-view" class="canvas-view" style="display:none;">
+      <h2 style="margin-top:0; font-size:18px;">⚡ Live Multi-Agent Execution DAG</h2>
+      <p style="color:var(--text-dim); font-size:13px;">Real-time execution flow, payload inspection, and compliance veto checkpoints.</p>
+      <div id="dag-container" style="display:flex; flex-direction:column; gap:14px; margin-top:16px;">
+        <div class="empty-state">Run a query to inspect live agent step execution.</div>
+      </div>
+    </div>
+
+    <!-- Risk & Variance Heatmap Canvas -->
+    <div id="canvas-heatmap-view" class="canvas-view" style="display:none;">
+      <h2 style="margin-top:0; font-size:18px;">📊 Multi-Document Risk & Figure Heatmap</h2>
+      <p style="color:var(--text-dim); font-size:13px;">Select two or more ingested documents to compare their reported financial metrics, with a deterministic variance-based risk score per metric.</p>
+      <div id="compare-doc-checkboxes" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;">
+        <div class="empty-state">Upload at least two documents to compare them.</div>
+      </div>
+      <button class="btn secondary small" id="compare-btn" style="margin-top:12px;">Compare selected</button>
+      <div id="heatmap-container" style="margin-top:16px; border:1px solid var(--panel-border); border-radius:12px; overflow:hidden; background:var(--panel);">
+        <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13px;">
+          <thead>
+            <tr style="background:var(--panel-2); border-bottom:1px solid var(--panel-border);">
+              <th style="padding:12px;">Document</th>
+              <th style="padding:12px;">Metric / Term</th>
+              <th style="padding:12px;">Extracted Figure</th>
+              <th style="padding:12px;">Risk Rating</th>
+            </tr>
+          </thead>
+          <tbody id="heatmap-rows">
+            <tr><td colspan="4" style="padding:20px; text-align:center; color:var(--text-faint);">No financial documents compared yet. Select documents above and click Compare.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Compliance Review Queue -->
+    <div id="canvas-compliance-view" class="canvas-view" style="display:none;">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div>
+          <h2 style="margin:0; font-size:18px;">🛡️ Compliance Review Queue</h2>
+          <p style="color:var(--text-dim); font-size:13px; margin:4px 0 0;">Answers blocked by compliance review, awaiting a human decision. Nothing here reaches the user until released.</p>
+        </div>
+        <button class="btn secondary small" id="refresh-review-queue-btn">Refresh</button>
+      </div>
+      <div id="review-queue-container" style="display:flex; flex-direction:column; gap:14px; margin-top:16px;">
+        <div class="empty-state">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const state = { token: null, username: null, role: null, org: null, documents: [] };
+const $ = (id) => document.getElementById(id);
+
+// A 401 means the JWT died (expired — tokens last 60 minutes with no
+// refresh, see api/auth.py) or was otherwise rejected. Every authenticated
+// call keeps failing from here on, but nothing about the UI would tell you
+// that — you'd still look logged in while every action silently errors.
+// Route any 401, from any call site, straight back to the login screen with
+// an explicit explanation instead of leaving that confusing state to be
+// discovered one failed click at a time.
+function handleSessionExpired(message) {
+  state.token = null;
+  $('app-screen').classList.remove('active');
+  $('session-info').style.display = 'none';
+  $('login-screen').style.display = 'flex';
+  resetChat();
+  $('doc-list').innerHTML = '<div class="empty-state">No documents uploaded yet.</div>';
+  state.documents = [];
+  renderCompareCheckboxes();
+  $('login-error').innerHTML = message ? `<div class="error-banner">${escapeHtml(message)}</div>` : '';
+}
+
+// Every API error shares one envelope (see src/finvault/api/error_handlers.py):
+// { error: { code, message, retryable, request_id } }. `code` is the stable
+// identifier to branch on; `message` is already safe to show a user. The
+// request_id is appended so a user reporting a problem can quote the one
+// string that finds their request in the server logs.
+function errorMessage(body, fallback) {
+  const error = body && body.error;
+  if (!error) return fallback;
+  const suffix = error.request_id ? ` (ref: ${error.request_id.slice(0, 8)})` : '';
+  return `${error.message || fallback}${suffix}`;
+}
+
+function api(path, opts = {}) {
+  const headers = opts.headers || {};
+  if (state.token) headers['authorization'] = `Bearer ${state.token}`;
+  return fetch(path, { ...opts, headers }).then(async (res) => {
+    let body = null;
+    try { body = await res.json(); } catch (e) { /* no body */ }
+    if (res.status === 401 && state.token) {
+      handleSessionExpired('Your session expired — please sign in again.');
+    }
+    if (!res.ok) {
+      throw new Error(errorMessage(body, res.statusText));
+    }
+    return body;
+  });
+}
+
+// --- Minimal, dependency-free markdown: paragraphs, bullet lists, bold,
+// italic, inline code. Model output is consistently this shape; a full
+// markdown library would be overkill for a self-contained single-page app.
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function renderInline(s) {
+  return escapeHtml(s)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>')
+    .replace(/`([^`]+?)`/g, '<code>$1</code>');
+}
+function renderMarkdown(text) {
+  const blocks = text.trim().split(/\n\s*\n/);
+  return blocks.map((block) => {
+    const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (lines.length && lines.every((l) => /^[-*•]\s+/.test(l))) {
+      const items = lines.map((l) => `<li>${renderInline(l.replace(/^[-*•]\s+/, ''))}</li>`).join('');
+      return `<ul>${items}</ul>`;
+    }
+    return `<p>${lines.map(renderInline).join('<br>')}</p>`;
+  }).join('');
+}
+
+function formatTime(date) {
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+$('login-btn').addEventListener('click', async () => {
+  const username = $('login-username').value.trim();
+  const role = $('login-role').value;
+  const org_id = $('login-org').value.trim();
+  $('login-error').innerHTML = '';
+  if (!username || !org_id) {
+    $('login-error').innerHTML = '<div class="error-banner">Username and organization ID are required.</div>';
+    return;
+  }
+  const btn = $('login-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Signing in…';
+  try {
+    const resp = await api('/auth/token', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username, role, org_id }),
+    });
+    state.token = resp.access_token;
+    state.username = username;
+    state.role = role;
+    state.org = org_id;
+    enterApp();
+  } catch (e) {
+    $('login-error').innerHTML = `<div class="error-banner">Sign-in failed: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+});
+$('login-username').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('login-btn').click(); });
+$('login-org').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('login-btn').click(); });
+
+$('logout-btn').addEventListener('click', () => handleSessionExpired());
+
+$('clear-btn').addEventListener('click', resetChat);
+
+function resetChat() {
+  $('messages').innerHTML = `
+    <div class="empty-state">
+      <span class="es-icon">💬</span>
+      Ask a question about the ingested documents.<br>Every answer passes through retrieval → analysis → compliance review before it reaches you.
+    </div>`;
+}
+
+function enterApp() {
+  $('login-screen').style.display = 'none';
+  $('app-screen').classList.add('active');
+  $('session-info').style.display = 'flex';
+  $('view-tabs').style.display = 'flex';
+  $('session-user').textContent = state.username;
+  $('session-role').textContent = state.role.replace('_', ' ');
+  $('session-role').className = `badge role-${state.role}`;
+  $('session-org').textContent = `· ${state.org}`;
+  // Review-queue access mirrors the backend's own gate (ROLE_RANK >=
+  // COMPLIANCE_OFFICER, see routes.py's _require_compliance_role) — hiding
+  // the tab for roles that would just get a 403 from every action in it.
+  $('tab-compliance').style.display = (state.role === 'compliance_officer' || state.role === 'admin') ? '' : 'none';
+  $('chat-input').focus();
+}
+
+// Canvas Tab Switching Logic
+const tabs = ['chat', 'graph', 'dag', 'heatmap', 'compliance'];
+tabs.forEach(tab => {
+  $(`tab-${tab}`).addEventListener('click', () => {
+    tabs.forEach(t => {
+      $(`tab-${t}`).className = t === tab ? 'btn small tab-btn active' : 'btn secondary small tab-btn';
+    });
+    if (tab === 'chat') {
+      $('chat-column').style.display = 'flex';
+      $('canvas-column').style.display = 'none';
+    } else {
+      $('chat-column').style.display = 'none';
+      $('canvas-column').style.display = 'flex';
+      document.querySelectorAll('.canvas-view').forEach(el => el.style.display = 'none');
+      $(`canvas-${tab}-view`).style.display = 'block';
+      if (tab === 'compliance') loadReviewQueue();
+    }
+  });
+});
+
+$('doc-file').addEventListener('change', () => {
+  const file = $('doc-file').files[0];
+  const label = $('fp-text');
+  if (file) {
+    const sizeKb = (file.size / 1024).toFixed(1);
+    label.innerHTML = `<span class="fp-name">${file.name}</span><br><span style="color:var(--text-faint)">${sizeKb} KB</span>`;
+  } else {
+    label.textContent = 'Click to choose a file';
+  }
+});
+
+$('upload-btn').addEventListener('click', async () => {
+  const fileInput = $('doc-file');
+  const classification = $('doc-classification').value;
+  if (!fileInput.files.length) {
+    $('upload-status').innerHTML = '<div class="error-banner">Choose a file first.</div>';
+    return;
+  }
+  const file = fileInput.files[0];
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const btn = $('upload-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Ingesting…';
+  $('upload-status').innerHTML = '';
+  try {
+    const resp = await api(`/documents?classification=${encodeURIComponent(classification)}`, {
+      method: 'POST',
+      body: formData,
+    });
+    const list = $('doc-list');
+    if (list.querySelector('.empty-state')) list.innerHTML = '';
+    const item = document.createElement('div');
+    item.className = 'doc-item';
+    item.innerHTML = `<span class="doc-title" title="${resp.title}">${resp.title}</span><span class="class-tag ${resp.classification}">${resp.classification}</span>`;
+    list.prepend(item);
+    state.documents.push({ id: resp.document_id, title: resp.title, classification: resp.classification });
+    renderCompareCheckboxes();
+    $('upload-status').innerHTML = '<div class="success-banner">✓ Ingested and encrypted.</div>';
+    fileInput.value = '';
+    $('fp-text').textContent = 'Click to choose a file';
+  } catch (e) {
+    $('upload-status').innerHTML = `<div class="error-banner">Upload failed: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Upload & ingest';
+  }
+});
+
+function addMessage(role, text, meta) {
+  const messages = $('messages');
+  if (messages.querySelector('.empty-state')) messages.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = `msg ${role}` + (meta && meta.blocked ? ' blocked' : '');
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  if (role === 'assistant') {
+    bubble.innerHTML = renderMarkdown(text);
+  } else {
+    bubble.textContent = text;
+  }
+  wrap.appendChild(bubble);
+
+  const metaEl = document.createElement('div');
+  metaEl.className = 'msg-meta';
+  if (meta) {
+    if (meta.blocked) {
+      metaEl.innerHTML += `<span class="flag block">Blocked${meta.block_reason ? ': ' + meta.block_reason : ''}</span>`;
+    }
+    if (meta.guardrail_findings && meta.guardrail_findings.length) {
+      metaEl.innerHTML += `<span class="flag guardrail">Redacted: ${meta.guardrail_findings.join(', ')}</span>`;
+    }
+    if (meta.injection_flags_detected) {
+      metaEl.innerHTML += `<span class="flag guardrail">${meta.injection_flags_detected} injection heuristic(s) flagged in source content</span>`;
+    }
+    if (!meta.blocked && !(meta.guardrail_findings && meta.guardrail_findings.length)) {
+      metaEl.innerHTML += `<span class="flag clean">Compliance: clean</span>`;
+    }
+  }
+  metaEl.innerHTML += `<span class="timestamp">${formatTime(new Date())}</span>`;
+  wrap.appendChild(metaEl);
+
+  messages.appendChild(wrap);
+  messages.scrollTop = messages.scrollHeight;
+  return wrap;
+}
+
+// Real progress replaces the old timer-based guess (Milestone 2) — labels
+// keyed by "agent:action", matching the SSE step_started event's shape
+// exactly (see agents/canvas_models.py's ExecutionStepNode / POST /query/stream).
+const STEP_LABELS = {
+  'retriever:search_documents': 'Retrieving relevant documents…',
+  'analyst:analyze': 'Analyzing financial context…',
+  'compliance:review_output': 'Running compliance review…',
+};
+const INITIAL_STATUS = STEP_LABELS['retriever:search_documents'];
+const SLOW_NOTICE = 'Still working — free-tier models can take a minute…';
+
+// Parses a POST /query/stream response body into {type, data} events. Not
+// native EventSource: it can't send the Authorization header this app's
+// auth model requires, so this reads the same SSE wire format by hand from
+// a plain fetch() body instead (see api/routes.py's query_stream).
+async function* parseSSEStream(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let sepIndex;
+    while ((sepIndex = buffer.indexOf('\n\n')) !== -1) {
+      const rawMessage = buffer.slice(0, sepIndex);
+      buffer = buffer.slice(sepIndex + 2);
+      const lines = rawMessage.split('\n');
+      const eventLine = lines.find((l) => l.startsWith('event: '));
+      const dataLine = lines.find((l) => l.startsWith('data: '));
+      if (!eventLine || !dataLine) continue;
+      yield { type: eventLine.slice('event: '.length), data: JSON.parse(dataLine.slice('data: '.length)) };
+    }
+  }
+}
+
+
+function renderGraphCanvas(graphData) {
+  const container = $('graph-container');
+  if (!graphData || !graphData.nodes || !graphData.nodes.length) {
+    container.innerHTML = '<div class="empty-state">No entities visible — either none extracted yet, or none at your clearance level.</div>';
+    return;
+  }
+  const labelFor = (nodeId) => {
+    const match = graphData.nodes.find((n) => n.id === nodeId);
+    return match ? match.label : nodeId;
+  };
+  container.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:18px; width:100%;">
+      <div style="display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap;">
+        ${graphData.nodes.map(n => `
+          <div style="background:var(--panel-2); border:1px solid var(--panel-border); padding:12px 16px; border-radius:10px; min-width:140px; text-align:center;">
+            <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px;">${n.type}</div>
+            <div style="font-size:14px; font-weight:700;">${n.label}</div>
+            <span class="class-tag ${n.classification}" style="margin-top:6px; inline-block;">${n.classification}</span>
+          </div>
+        `).join('')}
+      </div>
+      ${graphData.edges && graphData.edges.length ? `
+        <div style="display:flex; flex-direction:column; gap:6px; font-size:12.5px; color:var(--text-dim); border-top:1px solid var(--panel-border); padding-top:14px;">
+          ${graphData.edges.map(e => `
+            <div><b>${labelFor(e.source)}</b> <span style="color:var(--accent);">— ${e.label} →</span> <b>${labelFor(e.target)}</b></div>
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+async function loadFullGraph() {
+  const btn = $('load-full-graph-btn');
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Loading…';
+  try {
+    const graphData = await api('/graph');
+    renderGraphCanvas(graphData);
+  } catch (e) {
+    $('graph-container').innerHTML = `<div class="empty-state">Error loading graph: ${escapeHtml(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+function renderDAGTrace(steps) {
+  // Field names must match agents/canvas_models.py's ExecutionStepNode
+  // exactly (agent_name, payload_preview, veto_reason) — this silently
+  // rendered "undefined" for weeks when it read step.agent/step.payload,
+  // a mismatch nothing caught because no real data flowed through it yet.
+  const container = $('dag-container');
+  if (!steps || !steps.length) return;
+  container.innerHTML = steps.map((step, idx) => `
+    <div style="background:var(--panel); border:1px solid var(--panel-border); border-radius:10px; padding:14px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="background:var(--accent-glow); color:var(--accent); padding:4px 8px; border-radius:6px; font-weight:bold; font-size:12px;">Step ${idx + 1}</span>
+        <div>
+          <div style="font-weight:700; font-size:14px;">${step.agent_name.toUpperCase()} :: ${step.action}</div>
+          <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">${step.payload_preview}</div>
+          ${step.status === 'vetoed' && step.veto_reason ? `<div style="font-size:12px; color:var(--danger, #e5484d); margin-top:4px;">Veto reason: ${step.veto_reason}</div>` : ''}
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <span class="flag ${step.status === 'success' ? 'clean' : 'block'}">${step.status.toUpperCase()}</span>
+        <div style="font-size:11px; color:var(--text-faint); margin-top:4px;">${Math.round(step.duration_ms)}ms</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderCompareCheckboxes() {
+  const container = $('compare-doc-checkboxes');
+  if (state.documents.length < 2) {
+    container.innerHTML = '<div class="empty-state">Upload at least two documents to compare them.</div>';
+    return;
+  }
+  container.innerHTML = state.documents.map(doc => `
+    <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; background:var(--panel-2); border:1px solid var(--panel-border); border-radius:8px; padding:6px 10px; cursor:pointer;">
+      <input type="checkbox" class="compare-doc-checkbox" value="${doc.id}">
+      ${escapeHtml(doc.title)}
+    </label>
+  `).join('');
+}
+
+function riskLabel(score) {
+  if (score >= 0.66) return { cls: 'block', text: 'HIGH RISK' };
+  if (score >= 0.33) return { cls: 'guardrail', text: 'MODERATE' };
+  return { cls: 'clean', text: 'LOW RISK' };
+}
+
+function renderHeatmap(heatmapData) {
+  const tbody = $('heatmap-rows');
+  if (!heatmapData || !heatmapData.cells || !heatmapData.cells.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:20px; text-align:center; color:var(--text-faint);">No comparable metrics were found across the selected documents.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = heatmapData.cells.map(cell => {
+    const risk = riskLabel(cell.risk_score);
+    return `
+      <tr style="border-bottom:1px solid var(--panel-border);">
+        <td style="padding:12px; font-weight:600;">${escapeHtml(cell.doc_title)}</td>
+        <td style="padding:12px; color:var(--text-dim);">${escapeHtml(cell.metric_name)}</td>
+        <td style="padding:12px;">
+          ${escapeHtml(cell.value)}
+          ${cell.variance_note ? `<div style="font-size:11px; color:var(--text-faint); margin-top:2px;">${escapeHtml(cell.variance_note)}</div>` : ''}
+        </td>
+        <td style="padding:12px;"><span class="flag ${risk.cls}">${risk.text}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function compareSelectedDocuments() {
+  const ids = Array.from(document.querySelectorAll('.compare-doc-checkbox:checked')).map((el) => el.value);
+  if (ids.length < 2) {
+    $('heatmap-rows').innerHTML = '<tr><td colspan="4" style="padding:20px; text-align:center; color:var(--text-faint);">Select at least two documents above, then click Compare.</td></tr>';
+    return;
+  }
+  const btn = $('compare-btn');
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Comparing…';
+  $('heatmap-rows').innerHTML = '<tr><td colspan="4" style="padding:20px; text-align:center; color:var(--text-faint);"><span class="spinner"></span> Comparing selected documents…</td></tr>';
+  try {
+    const heatmap = await api('/documents/compare', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ document_ids: ids }),
+    });
+    renderHeatmap(heatmap);
+  } catch (e) {
+    $('heatmap-rows').innerHTML = `<tr><td colspan="4" style="padding:20px; text-align:center; color:var(--danger, #e5484d);">Error: ${escapeHtml(e.message)}</td></tr>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function loadReviewQueue() {
+  const container = $('review-queue-container');
+  container.innerHTML = '<div class="empty-state"><span class="spinner"></span> Loading…</div>';
+  try {
+    const items = await api('/compliance/review-queue');
+    renderReviewQueue(items);
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state" style="color:var(--danger, #e5484d);">Error loading review queue: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderReviewQueue(items) {
+  const container = $('review-queue-container');
+  if (!items || !items.length) {
+    container.innerHTML = '<div class="empty-state">Nothing pending — every blocked response so far has been resolved.</div>';
+    return;
+  }
+  container.innerHTML = items.map((item) => `
+    <div class="review-item" data-item-id="${item.id}" style="background:var(--panel); border:1px solid var(--panel-border); border-radius:12px; padding:16px;">
+      <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div style="font-weight:700; font-size:14px;">${escapeHtml(item.question)}</div>
+        <div style="font-size:11px; color:var(--text-faint); white-space:nowrap;">${formatTime(new Date(item.created_at * 1000))}</div>
+      </div>
+      <div style="margin-top:10px; padding:12px; background:var(--panel-2); border-radius:8px; font-size:13px; color:var(--text-dim); white-space:pre-wrap;">${escapeHtml(item.draft_answer)}</div>
+      <div style="margin-top:10px; font-size:12px; color:var(--danger, #e5484d);">${escapeHtml(item.block_reason || 'Blocked, no reason recorded.')}</div>
+      ${item.citations && item.citations.length ? `
+        <details style="margin-top:8px;">
+          <summary style="cursor:pointer; font-size:12px; color:var(--text-dim);">${item.citations.length} citation(s)</summary>
+          <div style="margin-top:6px; display:flex; flex-direction:column; gap:6px;">
+            ${item.citations.map((c) => `<div style="font-size:11.5px; color:var(--text-faint); padding:8px; background:var(--panel-2); border-radius:6px;">${escapeHtml(c.quoted_text || '')}</div>`).join('')}
+          </div>
+        </details>
+      ` : ''}
+      <div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <input type="text" class="review-note-input" placeholder="Optional note" style="flex:1; min-width:160px; padding:8px 10px; font-size:12.5px; background:var(--panel-2); border:1px solid var(--panel-border); border-radius:6px; color:inherit;">
+        <button class="btn secondary small review-release-btn">Release</button>
+        <button class="btn secondary small review-deny-btn">Deny</button>
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.review-item').forEach((el) => {
+    const itemId = el.dataset.itemId;
+    const noteInput = el.querySelector('.review-note-input');
+    el.querySelector('.review-release-btn').addEventListener('click', () => resolveReviewItem(itemId, 'released', noteInput.value));
+    el.querySelector('.review-deny-btn').addEventListener('click', () => resolveReviewItem(itemId, 'denied', noteInput.value));
+  });
+}
+
+async function resolveReviewItem(itemId, status, note) {
+  const item = document.querySelector(`.review-item[data-item-id="${itemId}"]`);
+  const buttons = item ? item.querySelectorAll('button') : [];
+  buttons.forEach((b) => (b.disabled = true));
+  try {
+    await api(`/compliance/review-queue/${itemId}/resolve`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status, note: note || null }),
+    });
+    await loadReviewQueue();
+  } catch (e) {
+    if (item) {
+      item.insertAdjacentHTML(
+        'beforeend',
+        `<div style="margin-top:8px; font-size:12px; color:var(--danger, #e5484d);">Failed to resolve: ${escapeHtml(e.message)}</div>`
+      );
+    }
+    buttons.forEach((b) => (b.disabled = false));
+  }
+}
+
+async function sendQuery() {
+  const input = $('chat-input');
+  const question = input.value.trim();
+  if (!question) return;
+  addMessage('user', question);
+  input.value = '';
+  input.disabled = true;
+  $('send-btn').disabled = true;
+  $('send-btn').innerHTML = '<span class="spinner"></span>';
+
+  const messages = $('messages');
+  const pending = document.createElement('div');
+  pending.className = 'msg assistant pending';
+  pending.innerHTML = '<div class="bubble"></div>';
+  messages.appendChild(pending);
+  messages.scrollTop = messages.scrollHeight;
+
+  const bubble = pending.querySelector('.bubble');
+  const startedAt = Date.now();
+  let currentLabel = INITIAL_STATUS;
+  const renderBubble = () => {
+    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+    const slowNotice = elapsedSec > 20 ? ` · ${SLOW_NOTICE}` : '';
+    bubble.innerHTML = `<span class="spinner"></span>${currentLabel}${slowNotice}<span class="elapsed">${elapsedSec}s</span>`;
+  };
+  renderBubble();
+  const elapsedTimer = setInterval(renderBubble, 1000);
+
+  // Filled in incrementally as step_started/step_finished events arrive —
+  // a "running" placeholder is added on start, then replaced in place with
+  // the real (fully-measured) step on finish. Purely a live preview: the
+  // final "done" event's execution_steps is what actually gets kept.
+  const liveSteps = [];
+  const addRunningStep = (agent, action) => {
+    liveSteps.push({
+      step_id: `pending-${liveSteps.length}`,
+      agent_name: agent,
+      action,
+      status: 'running',
+      duration_ms: 0,
+      payload_preview: '',
+      veto_reason: null,
+    });
+    renderDAGTrace(liveSteps);
+  };
+  const replaceWithFinishedStep = (agent, action, step) => {
+    const idx = liveSteps.findIndex((s) => s.agent_name === agent && s.action === action && s.status === 'running');
+    if (idx !== -1) liveSteps[idx] = step;
+    else liveSteps.push(step);
+    renderDAGTrace(liveSteps);
+  };
+
+  try {
+    const headers = { 'content-type': 'application/json' };
+    if (state.token) headers['authorization'] = `Bearer ${state.token}`;
+    const response = await fetch('/query/stream', { method: 'POST', headers, body: JSON.stringify({ question }) });
+    if (!response.ok || !response.body) {
+      let body = null;
+      try { body = await response.json(); } catch (e) { /* no JSON body */ }
+      if (response.status === 401) {
+        pending.remove();
+        handleSessionExpired('Your session expired — please sign in again.');
+        return;
+      }
+      throw new Error(errorMessage(body, response.statusText));
+    }
+
+    let resp = null;
+    for await (const { type, data } of parseSSEStream(response)) {
+      if (type === 'step_started') {
+        currentLabel = STEP_LABELS[`${data.agent}:${data.action}`] || `Running ${data.agent}…`;
+        renderBubble();
+        addRunningStep(data.agent, data.action);
+      } else if (type === 'step_finished') {
+        replaceWithFinishedStep(data.agent, data.action, data.step);
+      } else if (type === 'done' || type === 'error') {
+        resp = data;
+      }
+    }
+
+    pending.remove();
+    if (!resp) throw new Error('Stream ended without a result.');
+    addMessage('assistant', resp.answer, resp);
+
+    // Render Canvas Views — the server's final execution_steps/graph_data
+    // are authoritative, replacing the incrementally-built live preview.
+    if (resp.graph_data) renderGraphCanvas(resp.graph_data);
+    if (resp.execution_steps) renderDAGTrace(resp.execution_steps);
+
+  } catch (e) {
+    pending.remove();
+    addMessage('assistant', `Error: ${e.message}`, { blocked: true });
+  } finally {
+    clearInterval(elapsedTimer);
+    input.disabled = false;
+    $('send-btn').disabled = false;
+    $('send-btn').textContent = 'Send';
+    input.focus();
+  }
+}
+
+
+$('send-btn').addEventListener('click', sendQuery);
+$('chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendQuery(); });
+$('load-full-graph-btn').addEventListener('click', loadFullGraph);
+$('compare-btn').addEventListener('click', compareSelectedDocuments);
+$('refresh-review-queue-btn').addEventListener('click', loadReviewQueue);
+</script>
+</body>
+</html>

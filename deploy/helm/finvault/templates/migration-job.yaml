@@ -1,0 +1,87 @@
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "finvault.fullname" . }}-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "finvault.labels" . | nindent 4 }}
+  annotations:
+    # A pre-install/pre-upgrade hook: the schema must exist and the policies
+    # must be installed *before* any pod starts, or the first request hits a
+    # missing table. before-hook-creation deletes the previous revision's Job
+    # so a redeploy is not blocked by a completed one still holding the name.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  # Bounded retries: a migration that cannot connect will not succeed by
+  # being run twenty more times, and an unbounded backoff hides the failure
+  # behind a Job that looks merely slow.
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "finvault.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "finvault.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          command:
+            - python
+            - -c
+            - |
+              # Runs as the OWNING role, which is the only role that can
+              # create tables and install policies. The application itself
+              # connects as a different, non-owner role precisely so the
+              # policies apply to it — see security/rls.py.
+              import os
+              from sqlalchemy import create_engine
+              from finvault.db import init_db
+              from finvault.observability import configure_logging, get_logger
+              from finvault.security.rls import enable_row_level_security, verify_isolation
+
+              configure_logging()
+              log = get_logger("finvault.migrate")
+
+              engine = create_engine(os.environ["POSTGRES_DSN"], future=True)
+              init_db(engine)
+              log.info("schema_created")
+
+              if os.environ.get("FINVAULT_ENABLE_RLS", "").lower() in {"1", "true", "yes"}:
+                  enable_row_level_security(engine)
+                  # Verified from here only as far as the table flags go; the
+                  # owner is expected to bypass, so the authoritative check is
+                  # the app's own startup verification under its real role.
+                  log.info("rls_installed", extra={"tables": sorted(verify_isolation(engine))})
+          env:
+            - name: POSTGRES_OWNER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "finvault.secretName" . }}
+                  key: POSTGRES_OWNER_PASSWORD
+            - name: POSTGRES_DSN
+              value: "postgresql://{{ .Values.migration.owner }}:$(POSTGRES_OWNER_PASSWORD)@{{ .Values.postgres.host }}:{{ .Values.postgres.port }}/{{ .Values.postgres.database }}"
+            - name: FINVAULT_ENABLE_RLS
+              value: {{ .Values.config.enableRls | quote }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}

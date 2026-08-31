@@ -1,0 +1,486 @@
+<title>FinVault — Architecture Reference</title>
+<meta name="description" content="How FinVault is built: problem framing, component breakdown, execution flow, and technology choices.">
+<style>
+  :root {
+    --bg: #14161b;
+    --surface: #1b1e25;
+    --surface-2: #21242c;
+    --border: #2c303a;
+    --ink: #e9e6e0;
+    --ink-dim: #a8a49a;
+    --ink-faint: #726e66;
+    --accent: #c2915a;
+    --accent-ink: #f0dcc0;
+    --accent-soft: rgba(194, 145, 90, 0.14);
+    --danger: #d97a68;
+    --danger-soft: rgba(177, 80, 63, 0.16);
+    --warn: #d9b84a;
+    --warn-soft: rgba(201, 162, 39, 0.14);
+    --success: #7fb896;
+    --success-soft: rgba(74, 122, 92, 0.16);
+    --shadow: 0 20px 50px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f2ec;
+    --surface: #ffffff;
+    --surface-2: #faf7f1;
+    --border: #e3ddd0;
+    --ink: #262218;
+    --ink-dim: #6b6455;
+    --ink-faint: #948d7c;
+    --accent: #9c6a35;
+    --accent-ink: #6e4a22;
+    --accent-soft: rgba(156, 106, 53, 0.10);
+    --danger: #a8432f;
+    --danger-soft: rgba(168, 67, 47, 0.10);
+    --warn: #96751c;
+    --warn-soft: rgba(150, 117, 28, 0.12);
+    --success: #3d6b4d;
+    --success-soft: rgba(61, 107, 77, 0.10);
+    --shadow: 0 20px 50px rgba(90,70,40,.12);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f5f2ec; --surface: #ffffff; --surface-2: #faf7f1; --border: #e3ddd0;
+      --ink: #262218; --ink-dim: #6b6455; --ink-faint: #948d7c;
+      --accent: #9c6a35; --accent-ink: #6e4a22; --accent-soft: rgba(156, 106, 53, 0.10);
+      --danger: #a8432f; --danger-soft: rgba(168, 67, 47, 0.10);
+      --warn: #96751c; --warn-soft: rgba(150, 117, 28, 0.12);
+      --success: #3d6b4d; --success-soft: rgba(61, 107, 77, 0.10);
+      --shadow: 0 20px 50px rgba(90,70,40,.12);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.65; -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal { animation: rise .5s ease both; }
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  a { color: var(--accent); }
+  code, .mono {
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+  }
+
+  .doc {
+    max-width: 760px; margin: 0 auto; padding: 64px 24px 120px;
+  }
+  .wide { max-width: 980px; }
+
+  header.masthead {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    margin-bottom: 6px; flex-wrap: wrap;
+  }
+  .wordmark {
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent); border: 1px solid var(--border); border-radius: 999px;
+    padding: 5px 12px; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .wordmark::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  h1.doc-title {
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+    font-size: clamp(30px, 5vw, 42px); line-height: 1.15; margin: 18px 0 10px;
+    letter-spacing: -.01em; text-wrap: balance;
+  }
+  p.dek {
+    font-size: 17px; color: var(--ink-dim); margin: 0 0 44px; max-width: 62ch;
+    text-wrap: balance;
+  }
+
+  .toc {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; margin-bottom: 56px; font-size: 13px;
+  }
+  .toc a {
+    display: block; background: var(--surface); color: var(--ink-dim); text-decoration: none;
+    padding: 12px 14px; transition: background .15s, color .15s;
+  }
+  .toc a:hover { background: var(--surface-2); color: var(--ink); }
+  .toc .toc-num { color: var(--accent); font-family: ui-monospace, monospace; margin-right: 6px; }
+
+  section.block { margin: 68px 0; }
+  .eyebrow {
+    font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 6px; background: var(--accent-soft);
+    color: var(--accent-ink); font-size: 11px;
+  }
+  h2 {
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    font-size: 26px; margin: 0 0 18px; letter-spacing: -.005em; text-wrap: balance;
+  }
+  h3 {
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    font-size: 18px; margin: 28px 0 10px;
+  }
+  section.block > p { max-width: 68ch; }
+  .lede { font-size: 16.5px; }
+
+  .req-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border);
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-top: 22px;
+  }
+  @media (max-width: 640px) { .req-grid { grid-template-columns: 1fr; } }
+  .req-col { background: var(--surface); padding: 18px 20px; }
+  .req-col h4 {
+    margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--ink-faint); font-weight: 600;
+  }
+  .req-col ul { margin: 0; padding-left: 18px; }
+  .req-col li { margin-bottom: 8px; font-size: 14.5px; color: var(--ink-dim); }
+  .req-col li b { color: var(--ink); font-weight: 600; }
+
+  .diagram-frame {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 24px; overflow-x: auto; box-shadow: var(--shadow);
+  }
+  .diagram-frame .cap {
+    font-size: 12px; color: var(--ink-faint); margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .table-frame { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+  th, td { text-align: left; padding: 12px 16px; vertical-align: top; border-bottom: 1px solid var(--border); }
+  th {
+    background: var(--surface-2); font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--ink-faint); font-weight: 600; white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  td { color: var(--ink-dim); }
+  td.who { color: var(--ink); font-weight: 600; font-family: ui-monospace, monospace; font-size: 13px; white-space: nowrap; }
+  td b { color: var(--ink); font-weight: 600; }
+
+  .steps { list-style: none; margin: 24px 0 0; padding: 0; position: relative; }
+  .steps li {
+    display: grid; grid-template-columns: 34px 1fr; gap: 16px; padding-bottom: 22px; position: relative;
+  }
+  .steps li:not(:last-child)::before {
+    content: ''; position: absolute; left: 16px; top: 30px; bottom: 0; width: 1px; background: var(--border);
+  }
+  .step-num {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-family: ui-monospace, monospace;
+    font-size: 13px; color: var(--accent); flex-shrink: 0; z-index: 1;
+  }
+  .step-body { padding-top: 5px; font-size: 14.5px; color: var(--ink-dim); }
+  .step-body b { color: var(--ink); }
+
+  .callout {
+    border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    background: var(--surface); border-radius: 0 12px 12px 0; padding: 20px 24px;
+  }
+  .callout h3 { margin-top: 0; }
+  .callout ol { margin: 0; padding-left: 20px; }
+  .callout li { margin-bottom: 14px; font-size: 14.5px; color: var(--ink-dim); }
+  .callout li::marker { color: var(--accent); font-family: ui-monospace, monospace; }
+  .callout li b { color: var(--ink); }
+
+  .tag { font-family: ui-monospace, monospace; font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; }
+  .flag-clean { color: var(--success); background: var(--success-soft); padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .flag-block { color: var(--danger); background: var(--danger-soft); padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .flag-warn { color: var(--warn); background: var(--warn-soft); padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+
+  footer {
+    margin-top: 90px; padding-top: 22px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--ink-faint); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+
+  ::selection { background: var(--accent-soft); color: var(--ink); }
+</style>
+
+<div class="doc reveal">
+
+  <header class="masthead">
+    <span class="wordmark">FinVault</span>
+    <span class="tag" style="color:var(--ink-faint)">docs/architecture</span>
+  </header>
+
+  <h1 class="doc-title">How this is built</h1>
+  <p class="dek">A secure, self-hostable multi-agent RAG platform for finance — where the encryption, access-control, and compliance layers are the product, not a wrapper around it.</p>
+
+  <nav class="toc">
+    <a href="#problem"><span class="toc-num">1</span>Problem</a>
+    <a href="#architecture"><span class="toc-num">2</span>Architecture</a>
+    <a href="#components"><span class="toc-num">3</span>Components</a>
+    <a href="#flow"><span class="toc-num">4</span>Execution flow</a>
+    <a href="#stack"><span class="toc-num">5</span>Tech choices</a>
+    <a href="#pipeline"><span class="toc-num">6</span>GenAI pipeline</a>
+    <a href="#check"><span class="toc-num">7</span>Knowledge check</a>
+  </nav>
+
+  <section class="block" id="problem">
+    <div class="eyebrow"><span class="num">1</span>Problem analysis</div>
+    <h2>What has to be true for this to work</h2>
+    <p class="lede">A finance team needs to ask natural-language questions over sensitive internal documents — filings, compliance policies, client memos — without those documents ever leaking: to unauthorized internal users, to external systems, or via prompt-injection hidden inside the documents themselves.</p>
+
+    <div class="req-grid">
+      <div class="req-col">
+        <h4>Functional</h4>
+        <ul>
+          <li>Ingest <span class="tag">.pdf .docx .txt .md .csv</span>, tag each with a sensitivity tier</li>
+          <li>Answer questions grounded in those documents, with citations</li>
+          <li><b>Viewer / Analyst / Compliance Officer / Admin</b> see different tiers of content</li>
+          <li>Every answer is reviewed before it reaches the user</li>
+        </ul>
+      </div>
+      <div class="req-col">
+        <h4>Non-functional</h4>
+        <ul>
+          <li><b>Confidentiality at rest</b> — a compromised DB leaks nothing readable</li>
+          <li><b>Confidentiality in transit</b> — the most sensitive tier never reaches the LLM at all</li>
+          <li><b>Non-repudiation</b> — access history can't be silently edited</li>
+          <li><b>Fail closed</b> — uncertainty defaults to no-answer, never a guess</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="block wide" id="architecture">
+    <div class="eyebrow"><span class="num">2</span>High-level architecture</div>
+    <h2>Where a question travels</h2>
+    <p>One browser session, one FastAPI process, and four agent identities coordinating over a shared encrypted store. The Compliance step sits outside the agent's own tool set on purpose — it's Python control flow the model can't opt out of.</p>
+
+    <div class="diagram-frame">
+      <pre class="mermaid">
+%%{init: {'theme':'base', 'themeVariables': {
+  'background': '#1b1e25', 'primaryColor': '#21242c', 'primaryTextColor': '#e9e6e0',
+  'primaryBorderColor': '#2c303a', 'lineColor': '#726e66', 'secondaryColor': '#21242c',
+  'tertiaryColor': '#14161b', 'fontFamily': 'ui-monospace, SF Mono, Consolas, monospace',
+  'fontSize': '13px', 'clusterBkg': '#14161b', 'clusterBorder': '#2c303a', 'edgeLabelBackground':'#1b1e25'
+}}}%%
+flowchart TB
+    U["Browser · frontend/"] -->|"HTTPS + JWT"| API["FastAPI · api/"]
+    API --> ING["Ingestion Pipeline<br/>load → chunk → classify → embed → encrypt → store"]
+    API --> ORC["Orchestrator Agent"]
+
+    ORC --> RET["Retriever Agent"]
+    ORC --> ANA["Analyst Agent<br/>calculate() · AST-sandboxed"]
+    ORC --> COMP["Compliance Agent<br/>externalization · PII scan · semantic review"]
+
+    RET --> RETC["Retriever<br/>ACL filter → decrypt"]
+    ING --> ENC["security/encryption.py<br/>AES-256-GCM, per-chunk key"]
+    ENC --> QD[("Qdrant<br/>vectors + ciphertext only")]
+    RETC --> QD
+
+    ING --> EXT["Extraction Agent<br/>entities + relationships, once per doc"]
+    EXT --> GRAPH["GraphRetriever<br/>ACL filter → decrypt"]
+    ORC --> GRAPH
+    API --> GRAPH
+
+    API --> CMP["Comparison Agent<br/>on-demand, POST /documents/compare"]
+    CMP --> RETC
+    CMP --> RISK["_score_variance()<br/>deterministic, not LLM-scored"]
+
+    ORC --> LLM[["OpenRouter<br/>swappable model"]]
+    COMP -.->|"veto"| API
+
+    ING --> PG[("PostgreSQL<br/>documents + audit_log + graph_nodes/edges")]
+    EXT --> PG
+    GRAPH --> PG
+    ORC -.->|"every decision logged"| PG
+
+    classDef store fill:#21242c,stroke:#c2915a,stroke-width:1px,color:#e9e6e0
+    classDef agent fill:#21242c,stroke:#2c303a,color:#e9e6e0
+    classDef gate fill:#2a1f1a,stroke:#b1503f,color:#e9e6e0
+    class QD,PG store
+    class ORC,RET,ANA,EXT,GRAPH,CMP agent
+    class COMP,ENC,RISK gate
+      </pre>
+      <div class="cap">Dotted lines mark decision points that can stop a request — Compliance's veto, and the audit write that happens regardless of outcome.</div>
+    </div>
+  </section>
+
+  <section class="block wide" id="components">
+    <div class="eyebrow"><span class="num">3</span>Component breakdown</div>
+    <h2>What each piece is for, and what breaks without it</h2>
+    <div class="table-frame">
+      <table>
+        <thead><tr><th>Component</th><th>Purpose</th><th>What breaks if removed</th><th>Alternative considered</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="who">encryption.py</td>
+            <td>Envelope-encrypts every chunk (AES-256-GCM); each chunk gets its own data key, wrapped by a master key.</td>
+            <td>A compromised Qdrant instance leaks raw text. Per-chunk keys mean one leak exposes one chunk, not the corpus.</td>
+            <td>Single global key — simpler, but one leak is total</td>
+          </tr>
+          <tr>
+            <td class="who">access_control.py</td>
+            <td>Maps <span class="tag">Role</span> → minimum clearance per <span class="tag">Classification</span> tier.</td>
+            <td>Without it, retrieval has no concept of who's allowed to see what.</td>
+            <td>DB-level row security — harder to unit-test centrally</td>
+          </tr>
+          <tr>
+            <td class="who">retriever.py</td>
+            <td>Vector search → ACL filter → hybrid rerank (BM25 + vector via reciprocal rank fusion) → optional cross-encoder → decrypt. Unauthorized chunks are dropped silently, not flagged.</td>
+            <td>Flagging "access denied" would leak that a restricted document <i>exists</i> — the silence is the point.</td>
+            <td>Filter at the Qdrant payload-index level</td>
+          </tr>
+          <tr>
+            <td class="who">retriever_agent.py</td>
+            <td>Second, independent gate: a chunk outside the externalization allowlist never has its text assembled into a tool result at all.</td>
+            <td>Without this, ACL-cleared restricted content still reaches the LLM provider — proven live before this fix existed.</td>
+            <td>Gate only the final answer — insufficient, found the hard way</td>
+          </tr>
+          <tr>
+            <td class="who">orchestrator.py</td>
+            <td>Delegates to Retriever/Analyst via tool calls; routes every draft through Compliance unconditionally.</td>
+            <td>If Compliance were a callable tool instead of hard-coded control flow, a confused model could just skip it.</td>
+            <td>One monolithic agent with every tool</td>
+          </tr>
+          <tr>
+            <td class="who">compliance_agent.py</td>
+            <td>Externalization check → regex PII scan/redact → LLM semantic review, in that order.</td>
+            <td>Regex alone misses novel injected instructions; LLM alone is non-deterministic for known-shape secrets.</td>
+            <td>LLM-only review</td>
+          </tr>
+          <tr>
+            <td class="who">guardrails.py</td>
+            <td>Delimits retrieved text as data-not-instructions; heuristic injection detector as a second signal.</td>
+            <td>Any ingested document can carry an injected instruction — the delimiter is the primary defense.</td>
+            <td>Rely on model training alone — proven insufficient industry-wide</td>
+          </tr>
+          <tr>
+            <td class="who">audit.py</td>
+            <td>Hash-chained, append-only log — each entry's hash depends on the previous one.</td>
+            <td>A raw <span class="tag">UPDATE</span> against Postgres, bypassing the app entirely, is detectable — verified live.</td>
+            <td>Plain table with timestamps — tamperable by anyone with DB access</td>
+          </tr>
+          <tr>
+            <td class="who">embeddings.py</td>
+            <td>Local <span class="tag">sentence-transformers</span> — vectors computed on-device.</td>
+            <td>A cloud embedding API would see every document's raw text just to compute a vector.</td>
+            <td>Voyage/OpenAI embeddings — better quality, second third party sees your data</td>
+          </tr>
+          <tr>
+            <td class="who">agents/base.py</td>
+            <td>Generic tool-use loop, zero finance-specific logic — every agent is this loop plus a prompt and tools.</td>
+            <td>Also owns reliability hardening (retry-on-empty-turn, fail-closed on malformed responses) — a property of talking to an LLM, not of finance.</td>
+            <td>A framework like LangChain — less auditable, we wanted every request/response inspectable</td>
+          </tr>
+          <tr>
+            <td class="who">ingestion/extraction.py</td>
+            <td>Entity/relationship extraction agent — runs once per document at ingest time, same untrusted-content defense as retrieval.</td>
+            <td>Degrades to an empty result on failure or malformed output; never blocks embed/encrypt/store.</td>
+            <td>Extract per-query from retrieved chunks instead — rejected: re-extracts the same document on every question, no whole-document lineage</td>
+          </tr>
+          <tr>
+            <td class="who">retrieval/graph_store.py</td>
+            <td>Envelope-encrypts extracted labels/relations like chunk text; exact-match dedup via an unkeyed <span class="tag">label_hash</span>.</td>
+            <td>Plaintext labels in <span class="tag">graph_nodes</span> would leak document content the ACL is supposed to gate.</td>
+            <td>Fuzzy entity resolution — deliberately out of scope</td>
+          </tr>
+          <tr>
+            <td class="who">retrieval/graph_retriever.py</td>
+            <td>ACL-filtered decrypt for the Knowledge Graph canvas — mirrors retriever.py exactly, down to dropping an edge whose endpoint is hidden.</td>
+            <td>A visible edge pointing at a withheld node would itself leak that the node exists.</td>
+            <td>Filter only on the edge's own classification — insufficient, an endpoint can be more sensitive than the edge</td>
+          </tr>
+          <tr>
+            <td class="who">agents/comparison_agent.py</td>
+            <td>Extracts comparable per-document metric values (LLM); <span class="tag">_score_variance()</span> then computes each metric's risk score deterministically from those numbers.</td>
+            <td>An LLM-assigned risk score would be ungrounded and non-reproducible — the same pair of figures could score differently between runs.</td>
+            <td>Ask the model for a risk_score field directly — rejected for the same reason AnalystAgent's arithmetic is AST-sandboxed, not LLM-computed</td>
+          </tr>
+          <tr>
+            <td class="who">retriever.get_document_text()</td>
+            <td>Reassembles one document's full plaintext from its chunks, in order, after an ACL check — the read path comparison needs but retrieval's top-k search doesn't provide.</td>
+            <td>Comparison would only ever see a handful of semantically-retrieved fragments instead of whole documents.</td>
+            <td>Store plaintext separately for whole-document reads — rejected, a second at-rest copy of content the encryption model exists to avoid</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="block" id="flow">
+    <div class="eyebrow"><span class="num">4</span>Execution flow</div>
+    <h2>One <span class="tag">/query</span> request, start to finish</h2>
+    <ol class="steps">
+      <li><span class="step-num">1</span><div class="step-body">Browser sends <b>question + JWT</b> to <span class="tag">POST /query</span></div></li>
+      <li><span class="step-num">2</span><div class="step-body">FastAPI verifies the JWT and reconstructs <b>User(role, org_id)</b> — never trusts a client-supplied role</div></li>
+      <li><span class="step-num">3</span><div class="step-body"><b>Orchestrator.handle()</b> logs the query, loads session history (compliance-approved turns only), initializes real-time execution step DAG tracing, and runs agent loop</div></li>
+      <li><span class="step-num">4</span><div class="step-body">Orchestrator calls <span class="tag">search_documents</span> → <b>RetrieverAgent</b> runs its loop, logging <span class="tag">Step 1 (retriever)</span> execution trace</div></li>
+      <li><span class="step-num">5</span><div class="step-body">Each chunk is checked against the <b>externalization allowlist</b>; disallowed chunks become a withheld-notice before ever becoming a tool result</div></li>
+      <li><span class="step-num">6</span><div class="step-body">Orchestrator calls <span class="tag">analyze</span> → <b>AnalystAgent</b> produces the answer, logging <span class="tag">Step 2 (analyst)</span> — <span class="tag">Knowledge Graph</span> entities were already extracted at ingest time, not here</div></li>
+      <li><span class="step-num">7</span><div class="step-body">Orchestrator synthesizes a <b>draft answer</b></div></li>
+      <li><span class="step-num">8</span><div class="step-body"><b>ComplianceAgent.review_output()</b> runs checks and logs <span class="tag">Step 3 (compliance)</span> verdict trace</div></li>
+      <li><span class="step-num">9</span><div class="step-body">Any failed check → <span class="flag-block">blocked</span>, reason logged, generic message returned along with step DAG trace</div></li>
+      <li><span class="step-num">10</span><div class="step-body">All checks pass → <span class="flag-clean">clean</span>, returns <span class="tag">{answer, citations, execution_steps, graph_data}</span></div></li>
+      <li><span class="step-num">11</span><div class="step-body"><b>Frontend Visual Workspace</b> renders live updates across <b>💬 Chat</b>, <b>🕸️ Knowledge Graph</b>, <b>⚡ Execution DAG</b>, and <b>📊 Risk Heatmap</b></div></li>
+    </ol>
+  </section>
+
+  <section class="block wide" id="stack">
+    <div class="eyebrow"><span class="num">5</span>Technology choices</div>
+    <h2>Why this, not the obvious alternative</h2>
+    <div class="table-frame">
+      <table>
+        <thead><tr><th>Choice</th><th>Why</th><th>Limitation</th></tr></thead>
+        <tbody>
+          <tr><td class="who">FastAPI</td><td>Async-native, Pydantic validation, OpenAPI for free</td><td>No built-in horizontal-scale story beyond multiple processes</td></tr>
+          <tr><td class="who">Qdrant</td><td>Self-hostable — stays inside the boundary; payload filtering for org-scoping at query time</td><td>Embeddings can theoretically leak some source-text signal (inversion research) — documented, unsolved</td></tr>
+          <tr><td class="who">PostgreSQL</td><td>Real transactions for both the documents table and the hash-chained audit log</td><td><span class="tag">PostgresAuditLog</span> is correct for single-writer; multi-writer needs an advisory lock</td></tr>
+          <tr><td class="who">AES-256-GCM</td><td>Authenticated encryption — tampered ciphertext fails to decrypt, not "decrypts to garbage"</td><td>None significant at this scale</td></tr>
+          <tr><td class="who">OpenAI SDK → OpenRouter</td><td>Any OpenRouter model — including free ones — is a config change, not a rewrite</td><td>One more hop versus calling a provider directly</td></tr>
+          <tr><td class="who">Canvas Engine & DAG Trace</td><td>Visual entity mapping & real-time multi-agent execution DAG auditability</td><td>Requires client-side canvas DOM rendering for complex graph layouts</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="block wide" id="pipeline">
+    <div class="eyebrow"><span class="num">6</span>GenAI pipeline</div>
+    <h2>Only the stages that are actually earning their place</h2>
+    <div class="table-frame">
+      <table>
+        <thead><tr><th>Stage</th><th>What's used</th><th>Why (or why not)</th></tr></thead>
+        <tbody>
+          <tr><td class="who">Chunking</td><td>Paragraph-aware, fixed size + overlap</td><td>Deterministic, no LLM call needed</td></tr>
+          <tr><td class="who">Embeddings</td><td><span class="tag">sentence-transformers</span> · bge-small, local</td><td>Keeps this step inside the boundary — see §3</td></tr>
+          <tr><td class="who">Vector DB</td><td>Qdrant, org-scoped filter + cosine similarity</td><td>Self-hostable, filters at query time</td></tr>
+          <tr><td class="who">Retrieval</td><td>Top-k → ACL filter → externalization filter → hybrid rerank (BM25 + optional cross-encoder via RRF) → decrypt</td><td>Two independent security gates, not one; reranking runs only over already-authorized, decrypted candidates</td></tr>
+          <tr><td class="who">Knowledge Graph</td><td><span class="tag">ExtractionAgent</span> at ingest time → encrypted <span class="tag">graph_store.py</span></td><td>Extraction is once per document, not per query; canonical normalization fuzzy entity resolution merges variations (e.g. Inc, LLC, Corp) into unified entity nodes; <span class="tag">graph_data</span> on <span class="tag">/query</span> is scoped to retrieved documents, and <span class="tag">GET /graph</span> serves the full org graph on demand</td></tr>
+          <tr><td class="who">Risk Heatmap</td><td><span class="tag">ComparisonAgent</span> on demand → <span class="tag">POST /documents/compare</span></td><td>Metric values are LLM-extracted per document; the risk score is computed deterministically from those numbers, never asked of the model</td></tr>
+          <tr><td class="who">Execution Tracing</td><td>Live DAG Step Auditor in <span class="tag">orchestrator.py</span></td><td>Tracks sub-agent execution flow (Retriever → Analyst → Compliance) with execution timing and payload previews</td></tr>
+          <tr><td class="who">Agent reasoning</td><td>4-agent split — route / retrieve / reason / veto; per-session memory (compliance-approved turns only)</td><td>Independently testable units, not one do-everything prompt; history never includes blocked turns</td></tr>
+          <tr><td class="who">Output generation</td><td>Orchestrator's synthesis, always Compliance-reviewed</td><td>Raw model output never reaches the caller unchecked</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+
+  <section class="block" id="check">
+    <div class="eyebrow"><span class="num">7</span>Knowledge check</div>
+    <div class="callout">
+      <h3>Five questions before we go further</h3>
+      <ol>
+        <li>Why are <b>ACL clearance</b> and <b>externalization policy</b> two separate checks instead of one? Sketch a scenario where a user passes one but should still fail the other.</li>
+        <li>If the <b>AAD</b> binding in <span class="tag">encryption.py</span> — the piece tying ciphertext to <span class="tag">document_id:chunk_index</span> — were removed, what specific attack becomes possible that wasn't before?</li>
+        <li>The Compliance agent's semantic review is itself an LLM call. What happens if <i>that</i> call fails or returns something malformed — and why isn't the fallback "assume it's fine"?</li>
+        <li>Why <b>hash-chain</b> the audit log instead of a plain table with <span class="tag">created_at</span>? What attacker does chaining defend against that a timestamp doesn't?</li>
+        <li>We chose to <b>silently drop</b> chunks a user isn't cleared for over telling them access was denied. What's the security reasoning — and what UX cost does that tradeoff have?</li>
+      </ol>
+    </div>
+  </section>
+
+  <footer>
+    <span>FinVault — internal architecture reference</span>
+    <span>Phase 1 · agent scaffolding built for reuse beyond finance RAG</span>
+  </footer>
+
+</div>

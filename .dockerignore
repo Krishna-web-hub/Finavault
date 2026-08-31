@@ -1,0 +1,19 @@
+# Everything the image does not need. Keeping the build context small is a
+# speed matter; keeping .env and .secrets out of it is a security one — a
+# COPY of the working tree would bake the master key and API credentials
+# into an image layer, where they survive every later deletion.
+.venv/
+.secrets/
+.env
+.git/
+.github/
+.pytest_cache/
+**/__pycache__/
+*.pyc
+docs/
+tests/
+scripts/
+deploy/
+sample_docs/
+coverage.xml
+.coverage

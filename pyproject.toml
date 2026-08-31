@@ -1,0 +1,88 @@
+[project]
+name = "finvault"
+version = "0.1.0"
+description = "Secure multi-agent RAG platform for finance — encrypted at rest, ACL-gated retrieval, guardrailed agent orchestration on Claude."
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.50.0",
+    "qdrant-client>=1.12.0,<1.14.0",  # keep within Qdrant's compatibility window of the pinned v1.12.4 server image
+    "sentence-transformers>=3.3.0",
+    "cryptography>=43.0.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pyjwt>=2.9.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
+    "pypdf>=5.0.0",
+    "python-docx>=1.1.0",
+    "python-multipart>=0.0.12",
+    "rank-bm25>=0.2.2",
+    "redis>=5.0.0",
+    "prometheus-client>=0.21.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+# Markers for tests that need real infrastructure. They skip themselves when
+# the server is unreachable, so a developer without Docker running still gets
+# a green suite; CI runs them explicitly with service containers (see
+# .github/workflows/ci.yml).
+markers = [
+    "postgres: requires a reachable PostgreSQL server",
+    "redis: requires a reachable Redis server",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests", "scripts"]
+extend-exclude = [".venv", "docs"]
+
+[tool.ruff.lint]
+# A deliberately small, high-signal set. Every rule here has caught a real
+# class of bug in this codebase; rules that mostly produce noise-and-noqa
+# churn are left off rather than enabled and then suppressed everywhere.
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes — undefined names, unused imports
+    "I",    # import sorting
+    "B",    # bugbear — mutable defaults, unused loop variables
+    "UP",   # pyupgrade — modern syntax for the pinned Python floor
+    "C4",   # comprehension simplifications
+    "SIM",  # obvious simplifications
+    "T20",  # no print() in library code (see per-file-ignores)
+    "BLE",  # blind except — the `except Exception` this codebase documents case by case
+    "RUF",
+]
+ignore = [
+    "E501",    # line length is enforced by the formatter, not the linter
+    "SIM108",  # ternaries are not always clearer than an if/else block
+    "B008",    # FastAPI's Depends() in a default argument is the framework's own idiom
+    "RUF022",  # __all__ is ordered by hierarchy in errors.py, which reads better than alphabetically
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Scripts are user-facing CLIs whose output IS print(); tests assert on
+# internals and shadow names freely.
+"scripts/*" = ["T20"]
+"tests/*" = ["T20", "BLE"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

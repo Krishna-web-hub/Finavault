@@ -1,0 +1,168 @@
+# Continuous integration: lint and test every push and pull request.
+#
+# The suite is designed to run without infrastructure — Postgres, Qdrant and
+# Redis all have in-memory equivalents behind their interfaces (see
+# retrieval/vector_store.py, security/audit.py, cache.py) — so the default
+# job needs no services and finishes in seconds. Tests that genuinely need a
+# real database are marked `postgres` and run in a separate job with a
+# service container, so a Postgres outage in CI cannot block a pure-logic PR.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to a branch cancels the run still in flight for it. Reviewers
+# only ever care about the latest commit's result, and the runner minutes
+# spent finishing a superseded run are pure waste.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Deterministic settings for every job. The JWT secret is a CI-only value
+  # for tests that mint tokens; it is not a credential for anything.
+  FINVAULT_JWT_SECRET: ci-only-not-a-real-secret-value-000000
+  FINVAULT_LOG_FORMAT: text
+  FINVAULT_LOG_LEVEL: WARNING
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ruff
+        # Only ruff, not the project: linting does not need torch or
+        # sentence-transformers, and installing them here would add minutes
+        # to the job that gives the fastest feedback.
+        run: pip install "ruff>=0.8.0"
+
+      - name: Lint
+        run: ruff check --output-format=github .
+
+      - name: Check formatting
+        run: ruff format --check --diff .
+
+  test:
+    name: Tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Every version's result is wanted even when one fails — "3.11 broke,
+      # 3.12 passed" is the diagnosis, and fail-fast would hide half of it.
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Test
+        run: pytest -q --cov=finvault --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage
+        # Only from one version — two uploads of the same numbers add noise,
+        # not signal. `if: always()` so a failing suite still publishes what
+        # it managed to cover, which is often where the failure is.
+        if: always() && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+          if-no-files-found: warn
+
+  integration:
+    name: Integration (Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: finvault
+          POSTGRES_PASSWORD: finvault_ci
+          POSTGRES_DB: finvault
+        ports: ["5432:5432"]
+        # Without a health check the job races the container's startup and
+        # fails intermittently on connection refused — the classic flaky-CI
+        # cause, and one that looks like a code bug in the logs.
+        options: >-
+          --health-cmd "pg_isready -U finvault"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      POSTGRES_DSN: postgresql://finvault:finvault_ci@localhost:5432/finvault
+      FINVAULT_REDIS_URL: redis://localhost:6379/0
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run infrastructure-backed tests
+        # These are the tests that skip themselves when no server is
+        # reachable — running them here is the only place they actually
+        # execute, which is why Row Level Security has a CI job at all: a
+        # policy that is not exercised against a real Postgres is a policy
+        # nobody has verified.
+        run: pytest -q -m "postgres or redis" --no-header
+
+  security:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "." pip-audit
+
+      - name: Audit dependencies
+        # Advisory, not blocking: a CVE published in a transitive dependency
+        # overnight should raise a flag on the next PR, not wedge an
+        # unrelated bugfix behind an upgrade nobody has evaluated yet.
+        run: pip-audit --skip-editable || echo "::warning::pip-audit reported findings — review before release"

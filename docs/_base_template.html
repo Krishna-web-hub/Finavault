@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>{{PAGE_TITLE}} — FinVault</title>
+<meta name="description" content="{{META_DESCRIPTION}}"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ═══════════════════════════════════════════════════════
+   FINVAULT DESIGN SYSTEM v1.0 — Copy this into any HTML
+═══════════════════════════════════════════════════════ */
+:root{
+  --bg:#080b12; --bg2:#0d1220;
+  --surface:rgba(255,255,255,.04); --surface2:rgba(255,255,255,.07);
+  --border:rgba(255,255,255,.08); --border2:rgba(255,255,255,.14);
+  --ink:#eef0f8; --ink2:#9aa3be; --ink3:#545c7a;
+  --gold:#c9a84c; --gold2:#f0d890;
+  --gold-soft:rgba(201,168,76,.14); --gold-glow:rgba(201,168,76,.3);
+  --teal:#4ecdc4; --teal-soft:rgba(78,205,196,.12);
+  --rose:#e07a7a; --rose-soft:rgba(224,122,122,.12);
+  --indigo:#7c8cf8; --indigo-soft:rgba(124,140,248,.12);
+  --green:#6dca8a; --green-soft:rgba(109,202,138,.12);
+  --amber:#f0c060; --amber-soft:rgba(240,192,96,.12);
+  --radius:16px; --radius2:24px;
+  --shadow:0 32px 80px rgba(0,0,0,.6); --shadow2:0 8px 32px rgba(0,0,0,.4);
+  --glow-gold:0 0 60px rgba(201,168,76,.2),0 0 120px rgba(201,168,76,.08);
+  --font-serif:'Cormorant Garamond',Georgia,serif;
+  --font-body:'Outfit',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Fira Code',monospace;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:var(--font-body);background:var(--bg);color:var(--ink);line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+a{color:var(--gold);text-decoration:none;}
+a:hover{color:var(--gold2);}
+code,.mono{font-family:var(--font-mono);}
+
+/* — Aurora background — */
+.aurora{position:fixed;inset:-50%;z-index:0;pointer-events:none;background:radial-gradient(ellipse 80vw 60vh at 20% -10%,rgba(201,168,76,.08),transparent 60%),radial-gradient(ellipse 60vw 50vh at 80% 110%,rgba(78,205,196,.06),transparent 60%);animation:auroraShift 20s ease-in-out infinite alternate;}
+@keyframes auroraShift{0%{transform:translate3d(0,0,0) scale(1);}50%{transform:translate3d(-2%,3%,0) scale(1.03);}100%{transform:translate3d(2%,-2%,0) scale(.98);}}
+
+/* — Layout — */
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 24px 120px;}
+
+/* — Hero — */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:80px 24px;position:relative;}
+.hero-badge{display:inline-flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(201,168,76,.3);background:rgba(201,168,76,.06);border-radius:999px;padding:8px 18px;margin-bottom:32px;opacity:0;animation:fadeUp .8s var(--ease) .2s forwards;}
+.hero-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 12px var(--gold);animation:pulse 2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.6;transform:scale(.8);}}
+.hero-title{font-family:var(--font-serif);font-size:clamp(52px,9vw,110px);font-weight:300;line-height:.95;letter-spacing:-.02em;opacity:0;animation:fadeUp .9s var(--ease) .35s forwards;}
+.hero-title em{font-style:italic;background:linear-gradient(135deg,var(--gold2) 0%,var(--gold) 40%,#e8c060 80%,var(--gold2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;background-size:200% 200%;animation:shimmer 4s ease-in-out infinite;}
+@keyframes shimmer{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}
+.hero-sub{font-family:var(--font-serif);font-size:clamp(18px,2.5vw,26px);font-weight:300;font-style:italic;color:var(--ink2);max-width:60ch;margin:20px auto 0;opacity:0;animation:fadeUp .9s var(--ease) .5s forwards;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+
+/* — Navigation — */
+.nav-strip{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px) saturate(180%);background:rgba(8,11,18,.85);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:8px;overflow-x:auto;}
+.nav-brand{font-family:var(--font-serif);font-size:18px;font-style:italic;color:var(--gold);margin-right:auto;white-space:nowrap;}
+.nav-pill{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);text-decoration:none;padding:6px 14px;border-radius:999px;border:1px solid transparent;white-space:nowrap;transition:all .25s var(--ease);}
+.nav-pill:hover,.nav-pill.active{color:var(--gold);border-color:rgba(201,168,76,.3);background:rgba(201,168,76,.06);}
+
+/* — Section anatomy — */
+.section{margin:100px 0;}
+.eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.eyebrow::before{content:'';flex:0 0 24px;height:1px;background:linear-gradient(to right,var(--gold),transparent);}
+.section-title{font-family:var(--font-serif);font-size:clamp(36px,5vw,60px);font-weight:300;line-height:1.05;letter-spacing:-.015em;margin-bottom:8px;}
+.section-title em{font-style:italic;color:var(--gold);}
+.section-sub{font-family:var(--font-serif);font-size:19px;font-weight:300;font-style:italic;color:var(--ink2);max-width:70ch;margin-bottom:40px;}
+
+/* — Cards — */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius2);padding:32px;position:relative;overflow:hidden;transition:border-color .35s var(--ease),transform .35s var(--ease),box-shadow .35s var(--ease);}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);}
+.card:hover{border-color:var(--border2);transform:translateY(-4px);box-shadow:var(--shadow2);}
+.card--gold:hover{border-color:rgba(201,168,76,.35);box-shadow:var(--glow-gold);}
+.card--teal:hover{border-color:rgba(78,205,196,.35);}
+.card--rose:hover{border-color:rgba(224,122,122,.35);}
+.card-accent{position:absolute;top:0;left:0;width:3px;height:100%;border-radius:4px 0 0 4px;}
+.card--gold .card-accent{background:linear-gradient(to bottom,var(--gold),transparent);}
+.card--teal .card-accent{background:linear-gradient(to bottom,var(--teal),transparent);}
+
+/* — Chips — */
+.chip{font-family:var(--font-mono);font-size:11px;padding:4px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink2);transition:all .2s;}
+.chip--gold{border-color:rgba(201,168,76,.3);color:var(--gold);background:var(--gold-soft);}
+.chip--teal{border-color:rgba(78,205,196,.3);color:var(--teal);background:var(--teal-soft);}
+.chip--rose{border-color:rgba(224,122,122,.3);color:var(--rose);background:var(--rose-soft);}
+.chip--green{border-color:rgba(109,202,138,.3);color:var(--green);background:var(--green-soft);}
+.chip--amber{border-color:rgba(240,192,96,.3);color:var(--amber);background:var(--amber-soft);}
+.chip--indigo{border-color:rgba(124,140,248,.3);color:var(--indigo);background:var(--indigo-soft);}
+
+/* — Stats — */
+.stat-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin:32px 0;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 20px;text-align:center;transition:all .3s var(--ease);}
+.stat:hover{border-color:var(--gold-soft);transform:scale(1.03);}
+.stat-val{font-family:var(--font-serif);font-size:42px;font-style:italic;background:linear-gradient(135deg,var(--gold2),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;}
+.stat-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-top:8px;}
+
+/* — Tables — */
+.fancy-table{width:100%;border-collapse:collapse;font-size:14px;}
+.fancy-table th{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:500;padding:10px 16px;text-align:left;border-bottom:1px solid var(--border);}
+.fancy-table td{padding:12px 16px;color:var(--ink2);border-bottom:1px solid rgba(255,255,255,.04);}
+.fancy-table tr:last-child td{border-bottom:none;}
+.fancy-table tr:hover td{background:var(--surface);}
+.status-ok{color:#6dca8a;} .status-gap{color:#e07a7a;} .status-part{color:#f0c060;}
+
+/* — Scroll reveal — */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .7s var(--ease),transform .7s var(--ease);}
+.reveal.visible{opacity:1;transform:translateY(0);}
+.reveal-delay-1{transition-delay:.1s;} .reveal-delay-2{transition-delay:.2s;} .reveal-delay-3{transition-delay:.3s;}
+
+/* — Grids — */
+.grid-2{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;}
+.grid-4{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;}
+
+/* — Footer — */
+.footer{margin-top:120px;padding:48px 0 0;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+.footer-brand{font-family:var(--font-serif);font-size:22px;font-style:italic;color:var(--gold);}
+.footer-meta{font-family:var(--font-mono);font-size:11px;color:var(--ink3);text-align:right;}
+
+@media(max-width:700px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<div class="aurora"></div>
+<!-- Particles canvas: copy from engineering_roadmap.html canvas script -->
+
+<nav class="nav-strip">
+  <span class="nav-brand">FinVault</span>
+  <!-- Add nav-pill links here -->
+  <a class="nav-pill active" href="#section1">Section 1</a>
+</nav>
+
+<header class="hero">
+  <div class="hero-badge"><!-- Badge text --> Category · Topic</div>
+  <h1 class="hero-title">Page <em>Title Here</em></h1>
+  <p class="hero-sub">Subtitle in calligraphic italic style — keep it brief and elegant.</p>
+</header>
+
+<main class="wrap">
+
+  <!-- STATS ROW — optional -->
+  <div class="stat-row reveal">
+    <div class="stat"><div class="stat-val">73</div><div class="stat-label">Metric</div></div>
+    <div class="stat"><div class="stat-val">238</div><div class="stat-label">Metric</div></div>
+  </div>
+
+  <!-- SECTION TEMPLATE -->
+  <section class="section" id="section1">
+    <div class="eyebrow reveal"><!--  → optional icon or number --> Topic</div>
+    <h2 class="section-title reveal">Section <em>Title</em></h2>
+    <p class="section-sub reveal">Section subtitle in Cormorant italic.</p>
+
+    <!-- Card example -->
+    <div class="grid-3">
+      <div class="card card--gold reveal">
+        <div class="card-accent"></div>
+        <div style="padding-left:12px;">
+          <h3 style="font-family:var(--font-serif);font-size:20px;margin-bottom:8px;">Card Title</h3>
+          <p style="font-size:14px;color:var(--ink2);">Card content goes here.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+            <span class="chip chip--gold">Tag</span>
+            <span class="chip chip--teal">Tag</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TABLE EXAMPLE -->
+  <section class="section" id="section2">
+    <h2 class="section-title reveal">Data <em>Table</em></h2>
+    <div class="card reveal" style="overflow:hidden;padding:0;">
+      <table class="fancy-table">
+        <thead><tr><th>Column A</th><th>Column B</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Row 1</td><td>Value</td><td><span class="status-ok">✦ Done</span></td></tr>
+          <tr><td>Row 2</td><td>Value</td><td><span class="status-gap">✗ Pending</span></td></tr>
+          <tr><td>Row 3</td><td>Value</td><td><span class="status-part">◈ Partial</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="footer reveal">
+    <div class="footer-brand">FinVault</div>
+    <div class="footer-meta">Generated: {{DATE}}<br/>Phase 1 &mdash; 73 Python files &nbsp;·&nbsp; 238 tests</div>
+  </footer>
+
+</main>
+
+<script>
+/* Copy star field from engineering_roadmap.html */
+
+/* Scroll reveal */
+const revealEls = document.querySelectorAll('.reveal');
+const observer  = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){ e.target.classList.add('visible'); observer.unobserve(e.target); }
+  });
+},{ threshold: 0.12, rootMargin:'0px 0px -40px 0px' });
+revealEls.forEach(el => observer.observe(el));
+
+/* Nav active on scroll */
+const sections = document.querySelectorAll('section[id]');
+const pills    = document.querySelectorAll('.nav-pill[href^="#"]');
+const secObs   = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      pills.forEach(p=>p.classList.remove('active'));
+      const m = document.querySelector(`.nav-pill[href="#${e.target.id}"]`);
+      if(m) m.classList.add('active');
+    }
+  });
+},{ threshold:0.35 });
+sections.forEach(s=>secObs.observe(s));
+</script>
+</body>
+</html>

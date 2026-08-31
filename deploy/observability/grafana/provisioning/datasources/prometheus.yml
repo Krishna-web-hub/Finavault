@@ -1,0 +1,14 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    # A fixed uid, referenced by every panel in the provisioned dashboard.
+    # Without it Grafana generates one at import time and the dashboard's
+    # datasource references dangle — panels render as "Datasource not found".
+    uid: finvault-prometheus
+    jsonData:
+      timeInterval: 15s

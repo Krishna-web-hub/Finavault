@@ -1,0 +1,38 @@
+Acme Capital Partners — Anti-Money Laundering (AML) and Customer Due
+Diligence Policy
+
+Classification: Confidential — Compliance and Legal personnel only.
+
+1. Purpose
+This policy establishes the minimum standards for customer due diligence
+(CDD) and enhanced due diligence (EDD) applicable to all client onboarding
+and ongoing monitoring activities at Acme Capital Partners, in accordance
+with applicable AML regulations.
+
+2. Customer Due Diligence Requirements
+All new clients must undergo identity verification prior to account opening,
+including:
+- Government-issued photo identification
+- Proof of address dated within the last 90 days
+- Source-of-funds documentation for deposits exceeding $50,000
+- Beneficial ownership disclosure for all entity clients (25% threshold)
+
+3. Enhanced Due Diligence Triggers
+EDD procedures are required when a client meets any of the following
+criteria:
+- Politically Exposed Person (PEP) status, or immediate family of a PEP
+- Country of residence or incorporation on the firm's high-risk jurisdiction
+  list
+- Cash-intensive business as the primary source of funds
+- Transaction volume inconsistent with the client's stated profile within
+  any 30-day period
+
+4. Ongoing Monitoring
+Client accounts are subject to automated transaction monitoring with alerts
+escalated to the Compliance team within 24 hours. Suspicious Activity
+Reports (SARs) must be filed within the regulatory deadline from the date an
+alert is escalated, per jurisdictional requirements.
+
+5. Recordkeeping
+All CDD/EDD documentation must be retained for a minimum of seven years
+following account closure.

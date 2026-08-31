@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FinVault — Full-Stack Engineering Roadmap</title>
+<meta name="description" content="From Foundations to Production-Grade Multi-Agent AI — all 9 engineering layers mapped to real FinVault code."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS — FinVault Premium Dark
+═══════════════════════════════════════════════════════════ */
+:root {
+  --bg:          #080b12;
+  --bg2:         #0d1220;
+  --surface:     rgba(255,255,255,.04);
+  --surface2:    rgba(255,255,255,.07);
+  --border:      rgba(255,255,255,.08);
+  --border2:     rgba(255,255,255,.14);
+  --ink:         #eef0f8;
+  --ink2:        #9aa3be;
+  --ink3:        #545c7a;
+  --gold:        #c9a84c;
+  --gold2:       #f0d890;
+  --gold-soft:   rgba(201,168,76,.14);
+  --gold-glow:   rgba(201,168,76,.3);
+  --teal:        #4ecdc4;
+  --teal-soft:   rgba(78,205,196,.12);
+  --rose:        #e07a7a;
+  --rose-soft:   rgba(224,122,122,.12);
+  --indigo:      #7c8cf8;
+  --indigo-soft: rgba(124,140,248,.12);
+  --green:       #6dca8a;
+  --green-soft:  rgba(109,202,138,.12);
+  --amber:       #f0c060;
+  --amber-soft:  rgba(240,192,96,.12);
+  --radius:      16px;
+  --radius2:     24px;
+  --shadow:      0 32px 80px rgba(0,0,0,.6);
+  --shadow2:     0 8px 32px rgba(0,0,0,.4);
+  --glow-gold:   0 0 60px rgba(201,168,76,.2), 0 0 120px rgba(201,168,76,.08);
+  --font-serif:  'Cormorant Garamond', Georgia, serif;
+  --font-body:   'Outfit', system-ui, sans-serif;
+  --font-mono:   'JetBrains Mono', 'Fira Code', monospace;
+  --transition:  cubic-bezier(.4,0,.2,1);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+a { color: var(--gold); text-decoration: none; }
+a:hover { color: var(--gold2); }
+code, .mono { font-family: var(--font-mono); }
+
+/* ═══════════════════════════════════════════════════════════
+   ANIMATED CANVAS BACKGROUND
+═══════════════════════════════════════════════════════════ */
+#canvas-bg {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+}
+
+.aurora {
+  position: fixed; inset: -50%; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 80vw 60vh at 20% -10%, rgba(201,168,76,.08), transparent 60%),
+    radial-gradient(ellipse 60vw 50vh at 80% 110%, rgba(78,205,196,.06), transparent 60%),
+    radial-gradient(ellipse 100vw 40vh at 50% 50%, rgba(124,140,248,.04), transparent 70%);
+  animation: auroraShift 20s ease-in-out infinite alternate;
+}
+@keyframes auroraShift {
+  0%   { transform: translate3d(0,0,0) scale(1); }
+  33%  { transform: translate3d(-2%,3%,0) scale(1.04); }
+  66%  { transform: translate3d(3%,-2%,0) scale(.97); }
+  100% { transform: translate3d(-1%,1%,0) scale(1.02); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT WRAPPER
+═══════════════════════════════════════════════════════════ */
+.wrap {
+  position: relative; z-index: 1;
+  max-width: 1100px; margin: 0 auto;
+  padding: 0 24px 120px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HERO
+═══════════════════════════════════════════════════════════ */
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  text-align: center;
+  padding: 80px 24px;
+  position: relative;
+}
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--gold); border: 1px solid rgba(201,168,76,.3);
+  background: rgba(201,168,76,.06);
+  border-radius: 999px; padding: 8px 18px;
+  margin-bottom: 32px;
+  opacity: 0; animation: fadeUp .8s var(--transition) .2s forwards;
+}
+.hero-badge::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 12px var(--gold);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.6;transform:scale(.8);} }
+
+.hero-title {
+  font-family: var(--font-serif);
+  font-size: clamp(52px, 9vw, 110px);
+  font-weight: 300; line-height: .95;
+  letter-spacing: -.02em;
+  opacity: 0; animation: fadeUp .9s var(--transition) .35s forwards;
+}
+.hero-title em {
+  font-style: italic;
+  background: linear-gradient(135deg, var(--gold2) 0%, var(--gold) 40%, #e8c060 80%, var(--gold2) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% 200%;
+  animation: shimmer 4s ease-in-out infinite;
+}
+@keyframes shimmer { 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
+
+.hero-sub {
+  font-family: var(--font-serif); font-size: clamp(18px,2.5vw,26px);
+  font-weight: 300; font-style: italic;
+  color: var(--ink2); max-width: 60ch;
+  margin: 20px auto 0;
+  opacity: 0; animation: fadeUp .9s var(--transition) .5s forwards;
+}
+
+.hero-divider {
+  width: 1px; height: 80px;
+  background: linear-gradient(to bottom, transparent, var(--gold), transparent);
+  margin: 48px auto 0;
+  opacity: 0; animation: fadeUp .9s var(--transition) .65s forwards;
+}
+
+/* Scroll indicator */
+.scroll-hint {
+  position: absolute; bottom: 40px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink3);
+  opacity: 0; animation: fadeUp 1s var(--transition) 1s forwards;
+}
+.scroll-hint .wheel {
+  width: 20px; height: 32px; border: 1px solid var(--border2);
+  border-radius: 10px; position: relative;
+}
+.scroll-hint .wheel::after {
+  content: ''; width: 3px; height: 6px;
+  background: var(--gold); border-radius: 2px;
+  position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
+  animation: scrollWheel 2s ease-in-out infinite;
+}
+@keyframes scrollWheel {
+  0%   { top:5px; opacity:1; }
+  80%  { top:16px; opacity:0; }
+  100% { top:5px; opacity:0; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NAV PILLS
+═══════════════════════════════════════════════════════════ */
+.nav-strip {
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(8,11,18,.85);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex; align-items: center; gap: 8px;
+  overflow-x: auto;
+}
+.nav-strip::-webkit-scrollbar { display:none; }
+.nav-pill {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink3); text-decoration: none;
+  padding: 6px 14px; border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition: all .25s var(--transition);
+}
+.nav-pill:hover, .nav-pill.active {
+  color: var(--gold); border-color: rgba(201,168,76,.3);
+  background: rgba(201,168,76,.06);
+}
+.nav-brand {
+  font-family: var(--font-serif); font-size: 18px;
+  font-style: italic; color: var(--gold);
+  margin-right: auto; white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION ANATOMY
+═══════════════════════════════════════════════════════════ */
+.section { margin: 100px 0; }
+
+.eyebrow {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--gold); display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px;
+}
+.eyebrow::before {
+  content: ''; flex: 0 0 24px; height: 1px;
+  background: linear-gradient(to right, var(--gold), transparent);
+}
+.eyebrow-num {
+  width: 24px; height: 24px; border-radius: 8px;
+  background: var(--gold-soft); color: var(--gold);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+}
+
+.section-title {
+  font-family: var(--font-serif);
+  font-size: clamp(36px, 5vw, 60px);
+  font-weight: 300; line-height: 1.05;
+  letter-spacing: -.015em; margin-bottom: 8px;
+}
+.section-title em {
+  font-style: italic; color: var(--gold);
+}
+
+.section-sub {
+  font-family: var(--font-serif); font-size: 19px;
+  font-weight: 300; font-style: italic;
+  color: var(--ink2); max-width: 70ch;
+  margin-bottom: 40px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GLASS CARDS
+═══════════════════════════════════════════════════════════ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius2);
+  padding: 32px;
+  position: relative; overflow: hidden;
+  transition: border-color .35s var(--transition), transform .35s var(--transition), box-shadow .35s var(--transition);
+}
+.card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.15), transparent);
+}
+.card:hover {
+  border-color: var(--border2);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow2);
+}
+.card--gold:hover { border-color: rgba(201,168,76,.35); box-shadow: var(--glow-gold); }
+.card--teal:hover { border-color: rgba(78,205,196,.35); }
+.card--rose:hover { border-color: rgba(224,122,122,.35); }
+.card--indigo:hover { border-color: rgba(124,140,248,.35); }
+
+.card-accent {
+  position: absolute; top: 0; left: 0;
+  width: 3px; height: 100%; border-radius: 4px 0 0 4px;
+}
+.card--gold .card-accent { background: linear-gradient(to bottom, var(--gold), transparent); }
+.card--teal .card-accent { background: linear-gradient(to bottom, var(--teal), transparent); }
+.card--rose .card-accent { background: linear-gradient(to bottom, var(--rose), transparent); }
+.card--indigo .card-accent { background: linear-gradient(to bottom, var(--indigo), transparent); }
+.card--green .card-accent { background: linear-gradient(to bottom, var(--green), transparent); }
+
+/* ═══════════════════════════════════════════════════════════
+   LAYER PIPELINE (THE MAIN VISUAL)
+═══════════════════════════════════════════════════════════ */
+.pipeline {
+  display: flex; flex-direction: column; gap: 0;
+  position: relative;
+}
+.pipeline::before {
+  content: ''; position: absolute;
+  left: 31px; top: 56px; bottom: 56px; width: 1px;
+  background: linear-gradient(to bottom, var(--gold), var(--teal), var(--indigo), var(--rose), var(--gold));
+  background-size: 100% 400%; animation: flowLine 6s linear infinite;
+}
+@keyframes flowLine { 0%{background-position:0 0;} 100%{background-position:0 400%;} }
+
+.layer-item {
+  display: grid; grid-template-columns: 64px 1fr;
+  gap: 28px; align-items: start;
+  padding: 24px 0;
+  opacity: 0; transform: translateY(24px);
+  transition: opacity .6s var(--transition), transform .6s var(--transition);
+}
+.layer-item.visible { opacity: 1; transform: translateY(0); }
+
+.layer-icon {
+  width: 64px; height: 64px; border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-size: 22px;
+  font-style: italic; color: var(--gold);
+  position: relative; z-index: 1;
+  border: 1px solid var(--border2);
+  background: var(--bg2);
+  box-shadow: var(--shadow2);
+  transition: transform .35s var(--transition), box-shadow .35s var(--transition);
+  cursor: default; flex-shrink: 0;
+}
+.layer-item:hover .layer-icon {
+  transform: scale(1.08);
+  box-shadow: 0 0 24px var(--gold-glow);
+}
+
+.layer-content {}
+.layer-title {
+  font-family: var(--font-serif); font-size: 26px;
+  font-weight: 400; line-height: 1.2;
+  margin-bottom: 6px;
+}
+.layer-title em { font-style: italic; color: var(--gold); }
+.layer-tagline {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink3); margin-bottom: 16px;
+}
+.layer-desc { font-size: 15px; color: var(--ink2); max-width: 72ch; line-height: 1.75; }
+.layer-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+/* ═══════════════════════════════════════════════════════════
+   CHIPS / TAGS
+═══════════════════════════════════════════════════════════ */
+.chip {
+  font-family: var(--font-mono); font-size: 11px;
+  padding: 4px 12px; border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface); color: var(--ink2);
+  transition: all .2s;
+}
+.chip:hover { border-color: var(--gold); color: var(--gold); }
+.chip--gold  { border-color: rgba(201,168,76,.3); color: var(--gold); background: var(--gold-soft); }
+.chip--teal  { border-color: rgba(78,205,196,.3); color: var(--teal); background: var(--teal-soft); }
+.chip--rose  { border-color: rgba(224,122,122,.3); color: var(--rose); background: var(--rose-soft); }
+.chip--indigo{ border-color: rgba(124,140,248,.3); color: var(--indigo); background: var(--indigo-soft); }
+.chip--green { border-color: rgba(109,202,138,.3); color: var(--green); background: var(--green-soft); }
+.chip--amber { border-color: rgba(240,192,96,.3); color: var(--amber); background: var(--amber-soft); }
+
+/* ═══════════════════════════════════════════════════════════
+   STATUS TABLE
+═══════════════════════════════════════════════════════════ */
+.matrix-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 14px;
+}
+.matrix-table th {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink3); font-weight: 500;
+  padding: 10px 16px; text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.matrix-table td {
+  padding: 12px 16px; color: var(--ink2);
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  vertical-align: top;
+}
+.matrix-table tr:last-child td { border-bottom: none; }
+.matrix-table tr:hover td { background: var(--surface); }
+.matrix-table td:first-child {
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--gold); white-space: nowrap;
+}
+.status-ok   { color: var(--green); }
+.status-gap  { color: var(--rose); }
+.status-part { color: var(--amber); }
+
+/* ═══════════════════════════════════════════════════════════
+   FLOW DIAGRAM (CSS-BASED)
+═══════════════════════════════════════════════════════════ */
+.flow-wrap {
+  overflow-x: auto; padding: 8px 0 16px;
+}
+.flow {
+  display: flex; align-items: center; gap: 0;
+  min-width: max-content;
+}
+.flow-node {
+  flex: 0 0 auto;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 16px 20px;
+  text-align: center; position: relative;
+  transition: all .3s var(--transition);
+  cursor: default;
+}
+.flow-node:hover {
+  border-color: var(--gold); transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(201,168,76,.15);
+}
+.flow-node-icon { font-size: 24px; margin-bottom: 8px; }
+.flow-node-label {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: .06em; color: var(--ink);
+  line-height: 1.4;
+}
+.flow-node-sub {
+  font-size: 10px; color: var(--ink3); margin-top: 4px;
+  font-family: var(--font-mono);
+}
+.flow-arrow {
+  flex: 0 0 auto; width: 48px; position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.flow-arrow::before {
+  content: ''; position: absolute;
+  top: 50%; left: 0; right: 12px; height: 1px;
+  background: linear-gradient(to right, var(--border2), var(--gold-soft));
+  transform: translateY(-50%);
+}
+.flow-arrow::after {
+  content: ''; position: absolute;
+  right: 4px; top: 50%;
+  border: 5px solid transparent;
+  border-left-color: var(--gold);
+  transform: translateY(-50%);
+}
+.flow-dot {
+  position: absolute; top:50%; left: 0;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 12px var(--gold);
+  transform: translateY(-50%);
+  animation: flowDot 2s linear infinite;
+}
+@keyframes flowDot { 0%{left:0;opacity:0;} 10%{opacity:1;} 90%{opacity:1;} 100%{left:calc(100% - 8px);opacity:0;} }
+
+/* Security gate node */
+.flow-node--gate {
+  border-color: var(--rose);
+  background: var(--rose-soft);
+  animation: gatePulse 3s ease-in-out infinite;
+}
+@keyframes gatePulse {
+  0%,100%{box-shadow:0 0 0 0 rgba(224,122,122,0);}
+  50%{box-shadow:0 0 0 8px rgba(224,122,122,0);}
+}
+.flow-node--approved { border-color: var(--green); background: var(--green-soft); }
+.flow-node--blocked  { border-color: var(--rose);  background: var(--rose-soft); }
+
+/* ═══════════════════════════════════════════════════════════
+   REFERENCE GRID
+═══════════════════════════════════════════════════════════ */
+.ref-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px; margin-top: 32px;
+}
+.ref-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px;
+  transition: all .3s var(--transition);
+}
+.ref-card:hover { border-color: var(--border2); transform: translateY(-3px); }
+.ref-card-layer {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 10px;
+}
+.ref-card-title {
+  font-family: var(--font-serif); font-size: 18px;
+  font-weight: 500; margin-bottom: 6px; color: var(--ink);
+}
+.ref-card-desc { font-size: 13px; color: var(--ink2); line-height: 1.6; }
+.ref-card-file {
+  display: inline-block; margin-top: 12px;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--teal); background: var(--teal-soft);
+  padding: 3px 10px; border-radius: 6px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STAT BAR
+═══════════════════════════════════════════════════════════ */
+.stat-row {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px; margin: 32px 0;
+}
+.stat {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px 20px;
+  text-align: center;
+  transition: all .3s var(--transition);
+}
+.stat:hover { border-color: var(--gold-soft); transform: scale(1.03); }
+.stat-val {
+  font-family: var(--font-serif); font-size: 42px;
+  font-style: italic; color: var(--gold);
+  line-height: 1;
+  background: linear-gradient(135deg, var(--gold2), var(--gold));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.stat-label {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink3); margin-top: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECURITY GUARD VISUAL
+═══════════════════════════════════════════════════════════ */
+.guard-chain {
+  display: flex; flex-direction: column; gap: 0;
+  position: relative; margin: 32px 0;
+}
+.guard-step {
+  display: grid; grid-template-columns: 48px 1fr;
+  gap: 20px; align-items: start;
+  padding: 20px 0;
+  opacity: 0; transform: translateX(-20px);
+  transition: all .5s var(--transition);
+}
+.guard-step.visible { opacity: 1; transform: translateX(0); }
+.guard-step-num {
+  width: 48px; height: 48px; flex-shrink: 0;
+  border-radius: 14px; background: var(--bg2);
+  border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-size: 20px;
+  font-style: italic; color: var(--gold);
+  position: relative; z-index: 1;
+  box-shadow: var(--shadow2);
+}
+.guard-step-body {}
+.guard-step-title {
+  font-size: 16px; font-weight: 600; margin-bottom: 4px;
+  color: var(--ink);
+}
+.guard-step-desc { font-size: 14px; color: var(--ink2); }
+.guard-chain-line {
+  position: absolute; left: 23px; top: 48px; bottom: 0; width: 1px;
+  background: linear-gradient(to bottom, var(--gold-soft), transparent);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AGENT CARDS GRID
+═══════════════════════════════════════════════════════════ */
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px; margin-top: 32px;
+}
+.agent-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius2); padding: 28px;
+  position: relative; overflow: hidden;
+  transition: all .35s var(--transition);
+  cursor: default;
+}
+.agent-card::after {
+  content: ''; position: absolute;
+  top: -50%; left: -50%; width: 200%; height: 200%;
+  background: radial-gradient(circle at center, var(--gold-soft), transparent 60%);
+  opacity: 0; transition: opacity .4s;
+}
+.agent-card:hover::after { opacity: 1; }
+.agent-card:hover { transform: translateY(-6px); border-color: rgba(201,168,76,.25); }
+.agent-num {
+  font-family: var(--font-serif); font-size: 48px;
+  font-style: italic; color: rgba(201,168,76,.15);
+  line-height: 1; position: absolute; top: 16px; right: 20px;
+  user-select: none;
+}
+.agent-icon { font-size: 28px; margin-bottom: 14px; }
+.agent-name {
+  font-family: var(--font-serif); font-size: 20px;
+  font-weight: 500; margin-bottom: 4px;
+}
+.agent-role {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 12px;
+}
+.agent-desc { font-size: 13px; color: var(--ink2); line-height: 1.6; }
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLL REVEAL ANIMATIONS
+═══════════════════════════════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(20px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+
+.reveal {
+  opacity: 0; transform: translateY(28px);
+  transition: opacity .7s var(--transition), transform .7s var(--transition);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal-delay-1 { transition-delay: .1s; }
+.reveal-delay-2 { transition-delay: .2s; }
+.reveal-delay-3 { transition-delay: .3s; }
+.reveal-delay-4 { transition-delay: .4s; }
+
+/* ═══════════════════════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════════════════════ */
+.footer {
+  margin-top: 120px; padding: 48px 0 0;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+}
+.footer-brand {
+  font-family: var(--font-serif); font-size: 22px;
+  font-style: italic; color: var(--gold);
+}
+.footer-meta {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--ink3); text-align: right;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════════════════ */
+@media(max-width: 700px) {
+  .layer-item { grid-template-columns: 1fr; gap: 16px; }
+  .pipeline::before { display: none; }
+  .agent-grid { grid-template-columns: 1fr; }
+  .ref-grid { grid-template-columns: 1fr; }
+  .stat-row { grid-template-columns: repeat(2, 1fr); }
+  .flow { flex-direction: column; }
+  .flow-arrow { transform: rotate(90deg); }
+}
+</style>
+</head>
+<body>
+
+<!-- Animated background -->
+<div class="aurora"></div>
+<canvas id="canvas-bg"></canvas>
+
+<!-- NAVIGATION -->
+<nav class="nav-strip" role="navigation">
+  <span class="nav-brand">FinVault</span>
+  <a class="nav-pill active" href="#layers">Layers</a>
+  <a class="nav-pill" href="#agents">Agents</a>
+  <a class="nav-pill" href="#security">Security</a>
+  <a class="nav-pill" href="#matrix">Coverage</a>
+  <a class="nav-pill" href="#reading">Reading</a>
+</nav>
+
+<!-- HERO -->
+<header class="hero" role="banner">
+  <div class="hero-badge">Engineering Roadmap · 9 Layers</div>
+  <h1 class="hero-title">Full-Stack <em>Mastery</em></h1>
+  <p class="hero-sub">
+    From algorithmic foundations to production-grade multi-agent AI —
+    every layer mapped to real FinVault code.
+  </p>
+  <div class="hero-divider"></div>
+  <div class="scroll-hint">
+    <div class="wheel"></div>
+    <span>Scroll</span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- STATS ROW -->
+  <div class="stat-row reveal" id="stats">
+    <div class="stat">
+      <div class="stat-val">73</div>
+      <div class="stat-label">Python Files</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">238</div>
+      <div class="stat-label">Total Tests</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">5</div>
+      <div class="stat-label">AI Agents</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">9</div>
+      <div class="stat-label">Eng Layers</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">8.9</div>
+      <div class="stat-label">Security Rating</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">256</div>
+      <div class="stat-label">AES Bit Keys</div>
+    </div>
+  </div>
+
+  <!-- THE PIPELINE VISUAL -->
+  <section class="section" id="layers">
+    <div class="eyebrow reveal">
+      <div class="eyebrow-num">1-9</div>
+      The Nine Engineering Layers
+    </div>
+    <h2 class="section-title reveal">Every concept mapped<br/><em>to real code</em></h2>
+    <p class="section-sub reveal">
+      Theoretical foundations from MIT, CMU, and Stanford — each one visible in a real file, a real function, a real test.
+    </p>
+
+    <div class="pipeline">
+      <div class="layer-item" data-layer="1">
+        <div class="layer-icon">I</div>
+        <div class="layer-content">
+          <div class="layer-tagline">MIT 6.006 · MIT 6.033 · Stanford CS144</div>
+          <h3 class="layer-title">Foundations — <em>Algorithms, OS, Networking</em></h3>
+          <p class="layer-desc">Hash maps for O(1) ACL lookups. HNSW graph indexing for O(log n) ANN search. BM25 inverted index for lexical retrieval. Async I/O event loop with uvicorn. Background threads bridging sync SQLAlchemy to async SSE. HTTP/1.1 REST + Server-Sent Events for real-time agent streaming.</p>
+          <div class="layer-chips">
+            <span class="chip chip--gold">Hash Maps O(1)</span>
+            <span class="chip chip--gold">HNSW O(log n)</span>
+            <span class="chip chip--gold">BM25 Inverted Index</span>
+            <span class="chip chip--teal">Async Event Loop</span>
+            <span class="chip chip--teal">SSE Streaming</span>
+            <span class="chip chip--teal">HTTP/1.1 REST</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer-item" data-layer="2">
+        <div class="layer-icon">II</div>
+        <div class="layer-content">
+          <div class="layer-tagline">Python Deep · Git · Testing</div>
+          <h3 class="layer-title">Language — <em>Python & Engineering Habits</em></h3>
+          <p class="layer-desc">Abstract Base Classes (KeyProvider, AuditLog, VectorStore, EmbeddingProvider) — every dependency behind an interface so swapping a cloud KMS needs zero code changes. Pydantic v2 for domain schemas. Frozen dataclasses for immutable entries. 238 tests across 29 files including a red-team injection corpus.</p>
+          <div class="layer-chips">
+            <span class="chip chip--gold">Abstract Base Classes</span>
+            <span class="chip chip--gold">Pydantic v2</span>
+            <span class="chip chip--gold">Strategy Pattern</span>
+            <span class="chip chip--teal">238 Tests</span>
+            <span class="chip chip--teal">Red-Team Corpus</span>
+            <span class="chip chip--teal">Fake LLM Stubs</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer-item" data-layer="3">
+        <div class="layer-icon">III</div>
+        <div class="layer-content">
+          <div class="layer-tagline">CMU 15-445 · PostgreSQL · Qdrant · Redis</div>
+          <h3 class="layer-title">Databases — <em>SQL, Vector, Cache</em></h3>
+          <p class="layer-desc">Six normalized PostgreSQL tables with ACID audit transactions. org_id and label_hash indexing strategy. Qdrant vector DB with payload-filtered org isolation. VectorStore interface enables zero-code swap to Pinecone or pgvector. Redis caching roadmap for O(1) query result reuse.</p>
+          <div class="layer-chips">
+            <span class="chip chip--gold">PostgreSQL ACID</span>
+            <span class="chip chip--gold">6-Table Schema</span>
+            <span class="chip chip--gold">org_id Indexing</span>
+            <span class="chip chip--teal">Qdrant HNSW</span>
+            <span class="chip chip--teal">VectorStore Interface</span>
+            <span class="chip chip--rose">Redis Roadmap</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer-item" data-layer="4">
+        <div class="layer-icon">IV</div>
+        <div class="layer-content">
+          <div class="layer-tagline">FastAPI · JWT · RBAC · OWASP Top 10</div>
+          <h3 class="layer-title">Backend & APIs — <em>REST, Auth, Security</em></h3>
+          <p class="layer-desc">FastAPI with full REST + SSE streaming. JWT HS256 with role and org_id claims — access-control decisions are always anchored to server-issued tokens, never client-supplied headers. OWASP A01-A09 addressed. No plaintext org_id or role ever trusted from the wire.</p>
+          <div class="layer-chips">
+            <span class="chip chip--gold">FastAPI + SSE</span>
+            <span class="chip chip--gold">JWT HS256</span>
+            <span class="chip chip--gold">RBAC 4-tier</span>
+            <span class="chip chip--rose">OWASP A01 Access Control</span>
+            <span class="chip chip--rose">OWASP A02 Crypto</span>
+            <span class="chip chip--rose">OWASP A09 Logging</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer-item" data-layer="5">
+        <div class="layer-icon">V</div>
+        <div class="layer-content">
+          <div class="layer-tagline">HTML · CSS · Vanilla JS · SPA</div>
+          <h3 class="layer-title">Frontend — <em>Enough to Ship</em></h3>
+          <p class="layer-desc">Self-contained single-page application in frontend/index.html. Login → upload → query → SSE stream → execution canvas → knowledge graph. Session continuity via session_id. Compliance-blocked responses routed to review queue UI. All state managed with vanilla JavaScript.</p>
+          <div class="layer-chips">
+            <span class="chip chip--gold">Single Page App</span>
+            <span class="chip chip--gold">SSE Event Consumer</span>
+            <span class="chip chip--teal">Execution Canvas</span>
+            <span class="chip chip--teal">Knowledge Graph Viz</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer-item" data-layer="6">
+        <div class="layer-icon">VI</div>
+        <div class="layer-content">
+          <div class="layer-tagline">CAP · Event-Driven · Multi-Agent · Backpressure</div>
+          <h3 class="layer-title">Distributed Systems — <em>Multi-Agent Architecture</em></h3>
+          <p class="layer-desc">Five specialized agents with strict role boundaries. ExecutionEventBus as an in-process message queue streaming step events to SSE clients. Cross-agent TokenBudget providing backpressure — spending over 40,000 tokens fails closed immediately rather than accumulating unbounded cost.</p>
+          <div class="layer-chips">
+            <span class="chip chip--gold">5 Specialized Agents</span>
+            <span class="chip chip--gold">ExecutionEventBus</span>
+            <span class="chip chip--gold">TokenBudget Backpressure</span>
+            <span class="chip chip--teal">Fail-Closed Design</span>
+            <span class="chip chip--teal">Manual Tool Loop</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer-item" data-layer="7">
+        <div class="layer-icon">VII</div>
+        <div class="layer-content">
+          <div class="layer-tagline">Docker · AWS · Kubernetes · Prometheus</div>
+          <h3 class="layer-title">Cloud & DevOps — <em>Container to Production</em></h3>
+          <p class="layer-desc">Docker Compose with non-default ports (6350, 5433) to avoid cross-project data mixing. Roadmap: ECS Fargate auto-scaling, AWS KMS replacing LocalKeyProvider, Bedrock PrivateLink or self-hosted vLLM for zero data egress, Prometheus + Grafana for agent latency and token spend dashboards.</p>
+          <div class="layer-chips">
+            <span class="chip chip--gold">Docker Compose</span>
+            <span class="chip chip--gold">Port Isolation</span>
+            <span class="chip chip--rose">Kubernetes Roadmap</span>
+            <span class="chip chip--rose">CI/CD Roadmap</span>
+            <span class="chip chip--rose">Prometheus Roadmap</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer-item" data-layer="8">
+        <div class="layer-icon">VIII</div>
+        <div class="layer-content">
+          <div class="layer-tagline">Multi-Tenancy · OWASP · PCI-DSS · Rate Limiting</div>
+          <h3 class="layer-title">SaaS Security — <em>Enterprise Mechanics</em></h3>
+          <p class="layer-desc">Five independent layers of org isolation: JWT claims, Qdrant payload filter, SQLAlchemy WHERE, silent cross-org drop, and AES-256 envelope encryption. IBAN and credit card redaction in Compliance Agent for PCI-DSS awareness. Hash-chained audit log for non-repudiation. Human-in-the-loop review queue.</p>
+          <div class="layer-chips">
+            <span class="chip chip--gold">5-Layer Tenancy</span>
+            <span class="chip chip--gold">AES-256-GCM</span>
+            <span class="chip chip--gold">SHA-256 Audit Chain</span>
+            <span class="chip chip--rose">PCI-DSS IBAN Redaction</span>
+            <span class="chip chip--rose">HITL Review Queue</span>
+            <span class="chip chip--rose">Rate Limit Roadmap</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer-item" data-layer="9">
+        <div class="layer-icon">IX</div>
+        <div class="layer-content">
+          <div class="layer-tagline">Embeddings · BM25 · Cross-Encoder · Knowledge Graph</div>
+          <h3 class="layer-title">Data & ML — <em>The Actual Differentiator</em></h3>
+          <p class="layer-desc">100% local embeddings (bge-small-en-v1.5) — no document text ever sent to a third-party embedding API. Hybrid retrieval: vector ANN + BM25 lexical + optional cross-encoder reranker fused via Reciprocal Rank Fusion. Zero-shot classification via cosine similarity. Entity and relationship extraction into encrypted knowledge graph.</p>
+          <div class="layer-chips">
+            <span class="chip chip--gold">Local Embeddings</span>
+            <span class="chip chip--gold">BM25 + Cross-Encoder</span>
+            <span class="chip chip--gold">Reciprocal Rank Fusion</span>
+            <span class="chip chip--teal">Zero-Shot Classifier</span>
+            <span class="chip chip--teal">Knowledge Graph</span>
+            <span class="chip chip--teal">AST Calculator</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AGENT ARCHITECTURE -->
+  <section class="section" id="agents">
+    <div class="eyebrow reveal">
+      <div class="eyebrow-num">6</div>
+      Layer 6 — Distributed Systems
+    </div>
+    <h2 class="section-title reveal">Five Agents,<br/><em>One Purpose</em></h2>
+    <p class="section-sub reveal">Each agent has a strict role. None can perform the other's job. The Compliance Agent is Python control flow — the model has no ability to skip it.</p>
+
+    <!-- AGENT FLOW DIAGRAM -->
+    <div class="flow-wrap reveal">
+      <div class="flow">
+        <div class="flow-node">
+          <div class="flow-node-icon">🧑</div>
+          <div class="flow-node-label">User Query</div>
+          <div class="flow-node-sub">JWT Verified</div>
+        </div>
+        <div class="flow-arrow"><div class="flow-dot"></div></div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🎯</div>
+          <div class="flow-node-label">Orchestrator</div>
+          <div class="flow-node-sub">Routes + Assembles</div>
+        </div>
+        <div class="flow-arrow"></div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🔍</div>
+          <div class="flow-node-label">Retriever</div>
+          <div class="flow-node-sub">ACL → Decrypt → BM25</div>
+        </div>
+        <div class="flow-arrow"></div>
+        <div class="flow-node">
+          <div class="flow-node-icon">📊</div>
+          <div class="flow-node-label">Analyst</div>
+          <div class="flow-node-sub">AST Calculator</div>
+        </div>
+        <div class="flow-arrow"></div>
+        <div class="flow-node flow-node--gate">
+          <div class="flow-node-icon">🛡️</div>
+          <div class="flow-node-label">Compliance</div>
+          <div class="flow-node-sub">Unskippable Veto</div>
+        </div>
+        <div class="flow-arrow"></div>
+        <div class="flow-node flow-node--approved">
+          <div class="flow-node-icon">✅</div>
+          <div class="flow-node-label">Redacted Answer</div>
+          <div class="flow-node-sub">PII Stripped</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="agent-grid">
+      <div class="agent-card card reveal">
+        <div class="agent-num">1</div>
+        <div class="agent-icon">🎯</div>
+        <div class="agent-name">Orchestrator</div>
+        <div class="agent-role">Router · Assembler</div>
+        <div class="agent-desc">Plans execution, delegates to Retriever and Analyst via tool calls. Forces <code>search_documents</code> on first turn. Cannot answer without grounded context.</div>
+      </div>
+      <div class="agent-card card reveal reveal-delay-1">
+        <div class="agent-num">2</div>
+        <div class="agent-icon">🔍</div>
+        <div class="agent-name">Retriever</div>
+        <div class="agent-role">RAG · ACL Guard · Injection Scanner</div>
+        <div class="agent-desc">Multi-hop semantic search. Enforces externalization policy — RESTRICTED chunks are withheld before LLM sees them. Wraps all content as untrusted.</div>
+      </div>
+      <div class="agent-card card reveal reveal-delay-2">
+        <div class="agent-num">3</div>
+        <div class="agent-icon">📊</div>
+        <div class="agent-name">Analyst</div>
+        <div class="agent-role">Financial Reasoning · AST Sandbox</div>
+        <div class="agent-desc">Grounded financial analysis over retrieved context. Arithmetic via AST-walking evaluator — no <code>eval()</code>. Outputs verbatim-quoted structured JSON citations.</div>
+      </div>
+      <div class="agent-card card reveal reveal-delay-3">
+        <div class="agent-num">4</div>
+        <div class="agent-icon">🛡️</div>
+        <div class="agent-name">Compliance</div>
+        <div class="agent-role">Deterministic Veto · PII Scan</div>
+        <div class="agent-desc">Runs in Python control flow — unskippable. PII redaction, citation grounding check, semantic LLM review. Fail-closed: unreachable reviewer = BLOCK.</div>
+      </div>
+      <div class="agent-card card reveal reveal-delay-4">
+        <div class="agent-num">5</div>
+        <div class="agent-icon">📑</div>
+        <div class="agent-name">Comparison</div>
+        <div class="agent-role">Cross-Doc · Risk Heatmap</div>
+        <div class="agent-desc">Multi-document metric extraction. Risk scores computed by <code>_score_variance()</code> in deterministic Python — never trusted to the LLM to calculate.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECURITY LAYER -->
+  <section class="section" id="security">
+    <div class="eyebrow reveal">
+      <div class="eyebrow-num">8</div>
+      Layer 8 — SaaS Security
+    </div>
+    <h2 class="section-title reveal">Security is the <em>Architecture</em></h2>
+    <p class="section-sub reveal">Not a bolt-on. Every step from upload to answer has independent, fail-closed protection.</p>
+
+    <div class="card card--gold reveal" style="margin-bottom:32px;">
+      <div class="card-accent"></div>
+      <div style="padding-left:16px;">
+        <h3 style="font-family:var(--font-serif);font-size:22px;margin-bottom:12px;">The Core Security Invariant</h3>
+        <p style="color:var(--ink2);font-size:15px;line-height:1.75;">ACL Clearance (can this user <em>retrieve</em> a chunk) and Externalization Policy (can this chunk's content ever reach the LLM) are <strong style="color:var(--ink);">two independent checks</strong>. A Compliance Officer can be fully authorized to retrieve a <code style="color:var(--rose);">restricted</code> memo without that memo's text ever leaving the system boundary.</p>
+      </div>
+    </div>
+
+    <div class="guard-chain reveal">
+      <div class="guard-chain-line"></div>
+
+      <div class="guard-step">
+        <div class="guard-step-num">1</div>
+        <div class="guard-step-body">
+          <div class="guard-step-title">Ingestion — Encrypt Before Storage</div>
+          <div class="guard-step-desc">Local embeddings (bge-small-en-v1.5) → AES-256-GCM per-chunk envelope encryption with deterministic AAD binding (<code>document_id:chunk_index</code>) → Only ciphertext + wrapped keys stored in Qdrant and PostgreSQL. Zero plaintext persisted anywhere.</div>
+        </div>
+      </div>
+
+      <div class="guard-step">
+        <div class="guard-step-num">2</div>
+        <div class="guard-step-body">
+          <div class="guard-step-title">Retrieval — ACL Filter + Silent Drop</div>
+          <div class="guard-step-desc">Vector search returns candidates. Each hit: (a) check org isolation — cross-org fails silently, (b) check role clearance — lower-clearance user cannot even infer that a restricted document matched. Unauthorized chunks dropped silently, never surfaced as a denial.</div>
+        </div>
+      </div>
+
+      <div class="guard-step">
+        <div class="guard-step-num">3</div>
+        <div class="guard-step-body">
+          <div class="guard-step-title">Externalization Gate — Withheld Before LLM</div>
+          <div class="guard-step-desc"><code>RESTRICTED</code> classified chunks are withheld at the point content would be assembled into a tool result — before it enters any LLM prompt. A placeholder is shown. The classification ceiling is tracked for a second post-hoc gate in Compliance.</div>
+        </div>
+      </div>
+
+      <div class="guard-step">
+        <div class="guard-step-num">4</div>
+        <div class="guard-step-body">
+          <div class="guard-step-title">Prompt Injection Defense — Dual Layer</div>
+          <div class="guard-step-desc"><code>wrap_untrusted_content()</code> delimits retrieved text and neutralizes any embedded delimiter tags (preventing tag-escape attacks). <code>detect_injection_attempt()</code> provides a second independent heuristic signal scanning 16+ regex patterns including <em>DAN, jailbreak, system override</em>.</div>
+        </div>
+      </div>
+
+      <div class="guard-step">
+        <div class="guard-step-num">5</div>
+        <div class="guard-step-body">
+          <div class="guard-step-title">Output Guardrails — PII, Citations, Semantics</div>
+          <div class="guard-step-desc">Every draft answer: (a) regex PII/secret scan + redaction, (b) verbatim citation grounding check — hallucinated quotes fail, (c) LLM semantic review with fail-closed default (unreachable LLM = BLOCK). All three must pass before the user sees a response.</div>
+        </div>
+      </div>
+
+      <div class="guard-step">
+        <div class="guard-step-num">6</div>
+        <div class="guard-step-body">
+          <div class="guard-step-title">Audit Trail — Tamper-Evident Hash Chain</div>
+          <div class="guard-step-desc">Every query, retrieval, and compliance decision written to a SHA-256 hash-chained log. <code>AuditLog.verify_chain()</code> can detect any out-of-band insertion, deletion, or modification from that entry forward. Blocked responses are queued for compliance officer review.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COVERAGE MATRIX -->
+  <section class="section" id="matrix">
+    <div class="eyebrow reveal">
+      <div class="eyebrow-num">∑</div>
+      Coverage Matrix
+    </div>
+    <h2 class="section-title reveal">Roadmap vs.<br/><em>Reality</em></h2>
+    <p class="section-sub reveal">What exists, what is built, what comes next.</p>
+
+    <div class="card reveal" style="overflow:hidden;padding:0;">
+      <div style="overflow-x:auto;">
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th>Layer</th>
+              <th>Topic</th>
+              <th>Status</th>
+              <th>In FinVault</th>
+              <th>Gap / Next</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>I — Foundations</td><td>Data Structures, Big-O</td><td><span class="status-ok">✦ Built</span></td><td>Hash maps, sorted lists, HNSW graph</td><td>—</td></tr>
+            <tr><td>I — Foundations</td><td>OS: Async, Threads</td><td><span class="status-ok">✦ Built</span></td><td>uvicorn event loop, threading + queue.Queue</td><td>—</td></tr>
+            <tr><td>I — Foundations</td><td>Networking: HTTP, SSE</td><td><span class="status-ok">✦ Built</span></td><td>REST + Server-Sent Events</td><td>TLS termination docs</td></tr>
+            <tr><td>II — Language</td><td>Python OOP, ABCs, Pydantic</td><td><span class="status-ok">✦ Built</span></td><td>KeyProvider, AuditLog, VectorStore interfaces</td><td>—</td></tr>
+            <tr><td>II — Language</td><td>Unit + Integration Tests</td><td><span class="status-ok">✦ Built</span></td><td>238 tests, 29 files, red-team corpus</td><td>Coverage badge + CI</td></tr>
+            <tr><td>III — Databases</td><td>PostgreSQL ACID + Indexing</td><td><span class="status-ok">✦ Built</span></td><td>6-table schema, atomic audit transactions</td><td>Add PostgreSQL RLS</td></tr>
+            <tr><td>III — Databases</td><td>NoSQL: Vector DB</td><td><span class="status-ok">✦ Built</span></td><td>Qdrant HNSW, payload-filtered by org_id</td><td>—</td></tr>
+            <tr><td>III — Databases</td><td>Caching: Redis</td><td><span class="status-gap">✗ Pending</span></td><td>—</td><td>Query result + embedding cache</td></tr>
+            <tr><td>IV — Backend</td><td>REST API FastAPI</td><td><span class="status-ok">✦ Built</span></td><td>Full REST + SSE streaming</td><td>—</td></tr>
+            <tr><td>IV — Backend</td><td>JWT Auth + RBAC</td><td><span class="status-ok">✦ Built</span></td><td>4-tier role, org isolation, HS256 JWT</td><td>Connect to Okta / real IdP</td></tr>
+            <tr><td>IV — Backend</td><td>OWASP Security</td><td><span class="status-ok">✦ Built</span></td><td>A01-A09 addressed</td><td>Rate limiting middleware</td></tr>
+            <tr><td>V — Frontend</td><td>HTML/CSS/JS SPA</td><td><span class="status-ok">✦ Built</span></td><td>frontend/index.html</td><td>Upgrade to React</td></tr>
+            <tr><td>VI — Distributed</td><td>Multi-Agent Orchestration</td><td><span class="status-ok">✦ Built</span></td><td>5 specialized agents</td><td>—</td></tr>
+            <tr><td>VI — Distributed</td><td>Event Bus / Message Queue</td><td><span class="status-ok">✦ Built</span></td><td>ExecutionEventBus</td><td>Externalize to Kafka</td></tr>
+            <tr><td>VI — Distributed</td><td>Token Budget Backpressure</td><td><span class="status-ok">✦ Built</span></td><td>Cross-agent TokenBudget(40k)</td><td>—</td></tr>
+            <tr><td>VII — DevOps</td><td>Docker</td><td><span class="status-ok">✦ Built</span></td><td>docker-compose.yml, volume isolation</td><td>—</td></tr>
+            <tr><td>VII — DevOps</td><td>Kubernetes</td><td><span class="status-gap">✗ Pending</span></td><td>—</td><td>K8s manifests + Helm chart</td></tr>
+            <tr><td>VII — DevOps</td><td>CI/CD Pipeline</td><td><span class="status-gap">✗ Pending</span></td><td>—</td><td>GitHub Actions: pytest + lint</td></tr>
+            <tr><td>VII — DevOps</td><td>Observability</td><td><span class="status-part">◈ Partial</span></td><td>Hash-chained audit log only</td><td>Prometheus + Grafana</td></tr>
+            <tr><td>VIII — SaaS</td><td>Multi-tenancy Isolation</td><td><span class="status-ok">✦ Built</span></td><td>5-layer org isolation</td><td>Add PostgreSQL RLS</td></tr>
+            <tr><td>VIII — SaaS</td><td>Rate Limiting + Billing</td><td><span class="status-gap">✗ Pending</span></td><td>—</td><td>Stripe + rate-limit middleware</td></tr>
+            <tr><td>VIII — SaaS</td><td>PCI-DSS Awareness</td><td><span class="status-ok">✦ Built</span></td><td>IBAN + CC redaction in Compliance</td><td>—</td></tr>
+            <tr><td>IX — ML</td><td>Local Embeddings ETL</td><td><span class="status-ok">✦ Built</span></td><td>bge-small-en-v1.5, on-device</td><td>—</td></tr>
+            <tr><td>IX — ML</td><td>Hybrid Retrieval + Reranking</td><td><span class="status-ok">✦ Built</span></td><td>BM25 + Cross-Encoder + RRF</td><td>—</td></tr>
+            <tr><td>IX — ML</td><td>Zero-Shot Classification</td><td><span class="status-ok">✦ Built</span></td><td>Cosine similarity to exemplar centroids</td><td>Train a real classifier</td></tr>
+            <tr><td>IX — ML</td><td>Knowledge Graph</td><td><span class="status-ok">✦ Built</span></td><td>Entity + edge extraction, encrypted</td><td>Graph traversal queries</td></tr>
+            <tr><td>IX — ML</td><td>A/B Testing</td><td><span class="status-gap">✗ Pending</span></td><td>—</td><td>Experiment framework</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- RECOMMENDED READING -->
+  <section class="section" id="reading">
+    <div class="eyebrow reveal">
+      <div class="eyebrow-num">📚</div>
+      Recommended Reading
+    </div>
+    <h2 class="section-title reveal">The Canon,<br/><em>Mapped to Code</em></h2>
+    <p class="section-sub reveal">Every book recommendation you'll see — visible in a real function in this codebase.</p>
+
+    <div class="ref-grid">
+      <div class="ref-card reveal">
+        <div class="ref-card-layer">Layer I</div>
+        <div class="ref-card-title">MIT 6.006 — Introduction to Algorithms</div>
+        <div class="ref-card-desc">BM25 inverted index, RRF sort, HNSW graph index — all built on concepts from this course.</div>
+        <div class="ref-card-file">retrieval/retriever.py</div>
+      </div>
+      <div class="ref-card reveal reveal-delay-1">
+        <div class="ref-card-layer">Layer I</div>
+        <div class="ref-card-title">MIT 6.033 — Computer Systems</div>
+        <div class="ref-card-desc">uvicorn async I/O event loop, background threading for SSE bridge.</div>
+        <div class="ref-card-file">api/routes.py</div>
+      </div>
+      <div class="ref-card reveal reveal-delay-2">
+        <div class="ref-card-layer">Layer III</div>
+        <div class="ref-card-title">CMU 15-445 — Database Systems</div>
+        <div class="ref-card-desc">Indexing strategy in db.py, ACID atomic hash-chain in audit.py.</div>
+        <div class="ref-card-file">db.py · security/audit.py</div>
+      </div>
+      <div class="ref-card reveal reveal-delay-3">
+        <div class="ref-card-layer">Layer VI</div>
+        <div class="ref-card-title">Designing Data-Intensive Applications</div>
+        <div class="ref-card-desc">Multi-agent consistency, hash-chained audit log, CAP-aware fail-closed posture.</div>
+        <div class="ref-card-file">agents/orchestrator.py</div>
+      </div>
+      <div class="ref-card reveal">
+        <div class="ref-card-layer">Layer VI</div>
+        <div class="ref-card-title">MIT 6.824 — Distributed Systems</div>
+        <div class="ref-card-desc">Agent failure modes, AgentExecutionError fail-closed hierarchy, retry backoff.</div>
+        <div class="ref-card-file">agents/base.py</div>
+      </div>
+      <div class="ref-card reveal reveal-delay-1">
+        <div class="ref-card-layer">Layer VIII</div>
+        <div class="ref-card-title">OWASP Top 10</div>
+        <div class="ref-card-desc">ACL, injection defense, auth failure prevention, tamper-evident logging.</div>
+        <div class="ref-card-file">security/guardrails.py</div>
+      </div>
+      <div class="ref-card reveal reveal-delay-2">
+        <div class="ref-card-layer">Layer IX</div>
+        <div class="ref-card-title">The Little Book of Deep Learning</div>
+        <div class="ref-card-desc">Embedding models, dense retrieval, BM25 lexical scoring, cross-encoder reranking.</div>
+        <div class="ref-card-file">ingestion/embeddings.py</div>
+      </div>
+      <div class="ref-card reveal reveal-delay-3">
+        <div class="ref-card-layer">Layer IV</div>
+        <div class="ref-card-title">FastAPI Advanced Docs</div>
+        <div class="ref-card-desc">SSE streaming generator, Depends() injection, BackgroundTasks for threading.</div>
+        <div class="ref-card-file">api/routes.py · api/auth.py</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer reveal">
+    <div class="footer-brand">FinVault</div>
+    <div class="footer-meta">
+      Phase 1 &mdash; 73 Python files &nbsp;·&nbsp; 238 tests &nbsp;·&nbsp; 236 passing<br/>
+      Generated: 2026-08-31 &nbsp;·&nbsp; Security Rating: 8.9 / 10
+    </div>
+  </footer>
+
+</main>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   STAR FIELD CANVAS
+═══════════════════════════════════════════════════════════ */
+(function(){
+  const canvas = document.getElementById('canvas-bg');
+  const ctx = canvas.getContext('2d');
+  let stars = [];
+  let W, H;
+
+  function resize(){
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function createStars(n){
+    stars = [];
+    for(let i=0; i<n; i++){
+      stars.push({
+        x: Math.random()*W,
+        y: Math.random()*H,
+        r: Math.random()*.8 + .1,
+        a: Math.random(),
+        da: (Math.random()-.5)*.005,
+        dx: (Math.random()-.5)*.08,
+        dy: (Math.random()-.5)*.08,
+      });
+    }
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    stars.forEach(s=>{
+      s.x += s.dx; s.y += s.dy;
+      s.a += s.da;
+      if(s.a<0) s.da=Math.abs(s.da);
+      if(s.a>1) s.da=-Math.abs(s.da);
+      if(s.x<0) s.x=W; if(s.x>W) s.x=0;
+      if(s.y<0) s.y=H; if(s.y>H) s.y=0;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(201,168,76,${s.a*.4})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', ()=>{ resize(); createStars(200); });
+  resize(); createStars(200); draw();
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLL REVEAL
+═══════════════════════════════════════════════════════════ */
+const revealEls = document.querySelectorAll('.reveal, .layer-item, .guard-step');
+
+const observer = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add('visible');
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+revealEls.forEach(el => observer.observe(el));
+
+/* ═══════════════════════════════════════════════════════════
+   NAV ACTIVE PILL ON SCROLL
+═══════════════════════════════════════════════════════════ */
+const sections = document.querySelectorAll('section[id]');
+const pills    = document.querySelectorAll('.nav-pill[href^="#"]');
+
+const secObserver = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const id = e.target.id;
+      pills.forEach(p=>p.classList.remove('active'));
+      const match = document.querySelector(`.nav-pill[href="#${id}"]`);
+      if(match) match.classList.add('active');
+    }
+  });
+}, { threshold: 0.35 });
+
+sections.forEach(s => secObserver.observe(s));
+
+/* ═══════════════════════════════════════════════════════════
+   LAYER ITEM STAGGER
+═══════════════════════════════════════════════════════════ */
+document.querySelectorAll('.layer-item').forEach((el, i)=>{
+  el.style.transitionDelay = (i * 0.08) + 's';
+});
+
+document.querySelectorAll('.guard-step').forEach((el, i)=>{
+  el.style.transitionDelay = (i * 0.1) + 's';
+});
+</script>
+
+</body>
+</html>

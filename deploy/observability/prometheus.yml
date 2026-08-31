@@ -1,0 +1,30 @@
+# Prometheus scrape configuration for a local FinVault stack.
+#
+# Paired with docker-compose.observability.yml, which brings up Prometheus
+# and Grafana alongside the services in the main compose file. Kept in its
+# own file so `docker compose up` for day-to-day development stays fast and
+# does not run a monitoring stack nobody is looking at.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: local
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: finvault
+    metrics_path: /metrics
+    static_configs:
+      # host.docker.internal resolves to the host from inside the container,
+      # so this scrapes an app running on the host with `uvicorn` — the usual
+      # development shape. Point it at a service name instead when the app
+      # itself runs in compose.
+      - targets: ["host.docker.internal:8000"]
+        labels:
+          service: finvault
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

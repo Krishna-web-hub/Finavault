@@ -1,0 +1,96 @@
+# Alerting rules.
+#
+# Each of these fires on something a person would act on. Deliberately absent:
+# an alert on `finvault_errors_total{branch="expected"}` — those are refusals
+# the system is *supposed* to produce (a 403 for insufficient clearance, a
+# 429 for a client over its limit), and paging on them trains people to
+# ignore the pager.
+groups:
+  - name: finvault-availability
+    interval: 30s
+    rules:
+      - alert: FinVaultIncidentErrorRate
+        # Only the `incident` branch: dependency failures and bugs. See
+        # errors.py for what separates the two branches.
+        expr: |
+          sum(rate(finvault_errors_total{branch="incident"}[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "FinVault is returning dependency failures or bugs"
+          description: >-
+            More than 0.1 incident-branch errors per second over 5 minutes.
+            Group by error_code to separate a provider outage
+            (agent_execution_failed) from a code defect (internal_error).
+
+      - alert: FinVaultQueryLatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, route) (rate(finvault_http_request_duration_seconds_bucket{route="/query"}[10m]))
+          ) > 45
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 query latency above 45s"
+          description: >-
+            A /query call fans out into several LLM calls, so this is usually
+            upstream slowness rather than local saturation. Check
+            finvault_agent_duration_seconds to see which agent is the cost,
+            and finvault_llm_retries_total for provider trouble.
+
+      - alert: FinVaultLLMRetryStorm
+        expr: sum(rate(finvault_llm_retries_total[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated LLM retry rate"
+          description: >-
+            Retries precede user-visible failure — this is the earliest
+            warning of provider trouble, and it fires before the error-rate
+            alert above does.
+
+      - alert: FinVaultRateLimiterFailingOpen
+        expr: sum(rate(finvault_rate_limit_decisions_total{decision="failed_open"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limiter cannot reach its backend and is allowing all traffic"
+          description: >-
+            The limiter fails open by design (see api/rate_limit.py) so a
+            cache outage does not become a service outage — but while this
+            fires, /query is effectively unlimited. Restore Redis.
+
+      - alert: FinVaultTokenBudgetExhaustion
+        expr: sum(rate(finvault_token_budget_exhausted_total[15m])) > 0.05
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Requests are hitting the per-request token ceiling"
+          description: >-
+            Sustained exhaustion means the budget is mis-sized for the
+            corpus, or an agent is thrashing. Check
+            finvault_agent_runs_total by agent before raising
+            FINVAULT_MAX_TOKENS_PER_REQUEST.
+
+      - alert: FinVaultComplianceReviewerDown
+        # The most important rule here. When the semantic reviewer is
+        # unreachable it fails closed and blocks every answer — the system
+        # looks healthy from the outside (200s, valid responses) while
+        # actually reviewing nothing.
+        expr: |
+          sum(rate(finvault_compliance_verdicts_total{verdict="blocked",reason="reviewer_unavailable"}[10m])) > 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Compliance reviewer unreachable — every answer is being blocked"
+          description: >-
+            Blocking is the correct fail-closed behavior, but it is not a
+            working system. Users are getting refusals unrelated to their
+            questions.

@@ -1,0 +1,55 @@
+FinVault {{ .Chart.AppVersion }} is installed as {{ .Release.Name }}.
+
+Reach it:
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "finvault.fullname" . }} 8000:{{ .Values.service.port }}
+  # then http://localhost:8000/app for the UI, /health, /metrics
+{{- end }}
+
+Check it came up:
+  kubectl --namespace {{ .Release.Namespace }} logs -l app.kubernetes.io/instance={{ .Release.Name }} --tail=40 | grep startup_complete
+
+That one line reports which cache backend was selected, whether Row Level
+Security is in force, and whether rate limiting is on — the three things most
+worth confirming before sending real traffic.
+
+{{- if not .Values.redis.enabled }}
+
+  ! Redis is disabled. Each replica falls back to its own in-process cache, so
+    the hit rate drops with every replica added, and — more importantly — the
+    rate limiter's counters become per-pod, which means the effective limit is
+    (configured limit x replica count). Set redis.enabled=true for any
+    deployment running more than one replica.
+{{- end }}
+
+{{- if not .Values.config.enableRls }}
+
+  ! Row Level Security is off. Tenant isolation is enforced only by the
+    application's own WHERE clauses — correct today, but one forgotten filter
+    away from cross-tenant disclosure. Turn it on after confirming every
+    non-request code path declares its org (see security/rls.py).
+{{- end }}
+
+{{- if eq (float64 .Values.config.pricing.inputPerMillion) 0.0 }}
+
+  · Token pricing is unset, so the spend panel on the Grafana dashboard will
+    read a flat zero. Set config.pricing.* to your provider's per-million
+    rates to turn the token counters into a cost figure.
+{{- end }}
+
+{{- if .Values.secrets.create }}
+
+  ! secrets.create=true put your secrets into the Helm release, which is
+    itself stored as a Secret in this namespace. Fine for a first deployment;
+    move to secrets.existingSecret (with an external secrets operator, or your
+    cloud's secret manager) before this handles anything real.
+
+  ! Back up the master key NOW, somewhere this cluster cannot delete. It wraps
+    every per-chunk data key — without it, every stored document is
+    permanently unreadable. The chart marks the Secret helm.sh/resource-policy:
+    keep so an uninstall will not take it, but that is not a backup.
+{{- end }}

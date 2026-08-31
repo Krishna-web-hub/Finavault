@@ -1,0 +1,45 @@
+{{- include "finvault.validateSecrets" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "finvault.fullname" . }}-config
+  labels:
+    {{- include "finvault.labels" . | nindent 4 }}
+data:
+  # Non-secret configuration only. Anything here is readable by anyone with
+  # get access to ConfigMaps in this namespace, which is a much wider set of
+  # people than can read Secrets.
+  FINVAULT_MODEL: {{ .Values.config.model | quote }}
+  FINVAULT_MAX_TOKENS: {{ .Values.config.maxTokens | quote }}
+  FINVAULT_MAX_TOKENS_PER_REQUEST: {{ .Values.config.maxTokensPerRequest | quote }}
+  FINVAULT_EMBEDDING_MODEL: {{ .Values.config.embeddingModel | quote }}
+  FINVAULT_LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  FINVAULT_LOG_FORMAT: {{ .Values.config.logFormat | quote }}
+  FINVAULT_ALLOWED_EXTERNAL_CLASSIFICATIONS: {{ .Values.config.allowedExternalClassifications | quote }}
+  FINVAULT_MAX_UPLOAD_SIZE_MB: {{ .Values.config.maxUploadSizeMb | quote }}
+  FINVAULT_ENABLE_RLS: {{ .Values.config.enableRls | quote }}
+  FINVAULT_AUTO_CREATE_SCHEMA: {{ .Values.config.autoCreateSchema | quote }}
+
+  QDRANT_URL: {{ .Values.qdrant.url | quote }}
+  QDRANT_COLLECTION: {{ .Values.qdrant.collection | quote }}
+
+  {{- if .Values.redis.enabled }}
+  FINVAULT_REDIS_URL: {{ .Values.redis.url | quote }}
+  FINVAULT_REDIS_TIMEOUT_SECONDS: {{ .Values.redis.timeoutSeconds | quote }}
+  {{- end }}
+
+  FINVAULT_ENABLE_RATE_LIMIT: {{ .Values.config.rateLimit.enabled | quote }}
+  FINVAULT_RATE_LIMIT_PER_MINUTE: {{ .Values.config.rateLimit.perMinute | quote }}
+  FINVAULT_RATE_LIMIT_PER_HOUR: {{ .Values.config.rateLimit.perHour | quote }}
+  FINVAULT_RATE_LIMIT_ANONYMOUS_PER_MINUTE: {{ .Values.config.rateLimit.anonymousPerMinute | quote }}
+
+  FINVAULT_ENABLE_QUERY_CACHE: {{ .Values.config.cache.enableQueryCache | quote }}
+  FINVAULT_QUERY_CACHE_TTL_SECONDS: {{ .Values.config.cache.queryCacheTtlSeconds | quote }}
+  FINVAULT_ENABLE_EMBEDDING_CACHE: {{ .Values.config.cache.enableEmbeddingCache | quote }}
+  FINVAULT_EMBEDDING_CACHE_TTL_SECONDS: {{ .Values.config.cache.embeddingCacheTtlSeconds | quote }}
+
+  FINVAULT_ENABLE_METRICS: "true"
+  FINVAULT_PRICE_INPUT_PER_MILLION: {{ .Values.config.pricing.inputPerMillion | quote }}
+  FINVAULT_PRICE_OUTPUT_PER_MILLION: {{ .Values.config.pricing.outputPerMillion | quote }}
+
+  FINVAULT_MASTER_KEY_PATH: /var/run/finvault/master.key

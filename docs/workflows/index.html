@@ -1,0 +1,142 @@
+<title>FinVault — Workflows</title>
+<style>
+  :root {
+    --bg: #0e1015; --bg2: #14171d; --surface: #1a1e26; --surface-2: #20242e; --border: #2a2f3a;
+    --ink: #eef0f4; --ink-dim: #9aa1b0; --ink-faint: #5c6272;
+    --shadow: 0 30px 80px rgba(0,0,0,.45);
+  }
+  :root[data-theme="light"] {
+    --bg: #f3f2ee; --bg2: #ebe9e3; --surface: #ffffff; --surface-2: #f7f5f0; --border: #e1ddd2;
+    --ink: #201f1c; --ink-dim: #625d51; --ink-faint: #948d7c;
+    --shadow: 0 30px 80px rgba(60,50,30,.10);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f3f2ee; --bg2: #ebe9e3; --surface: #ffffff; --surface-2: #f7f5f0; --border: #e1ddd2;
+      --ink: #201f1c; --ink-dim: #625d51; --ink-faint: #948d7c;
+      --shadow: 0 30px 80px rgba(60,50,30,.10);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); min-height: 100vh; overflow-x: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .glow { position: fixed; inset: -20%; z-index: 0; pointer-events: none; opacity: .55;
+    background:
+      radial-gradient(600px 400px at 12% 8%, rgba(89,184,176,.14), transparent 60%),
+      radial-gradient(600px 400px at 85% 15%, rgba(157,132,224,.13), transparent 60%),
+      radial-gradient(700px 500px at 50% 90%, rgba(211,164,102,.10), transparent 60%),
+      radial-gradient(500px 400px at 90% 80%, rgba(224,131,152,.10), transparent 60%);
+    animation: drift 26s ease-in-out infinite alternate;
+  }
+  @keyframes drift { from { transform: translate3d(0,0,0) scale(1); } to { transform: translate3d(-2%,2%,0) scale(1.05); } }
+
+  .mono { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace; }
+  .wrap { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 90px 24px 100px; }
+
+  .eyebrow { font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-faint); display: flex; align-items: center; gap: 10px; margin-bottom: 22px;
+    opacity: 0; animation: rise .6s ease .05s forwards;
+  }
+  .eyebrow::before { content:''; width: 20px; height: 1px; background: var(--ink-faint); }
+
+  h1 { font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    font-size: clamp(44px, 8vw, 86px); line-height: .98; letter-spacing: -.02em; margin: 0 0 40px;
+    background: linear-gradient(135deg, var(--ink) 40%, var(--ink-dim));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    opacity: 0; animation: rise .7s ease .12s forwards;
+  }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .card {
+    position: relative; display: block; text-decoration: none; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+    padding: 28px 24px 24px; overflow: hidden; isolation: isolate;
+    box-shadow: var(--shadow); transition: transform .35s cubic-bezier(.2,.8,.2,1), border-color .35s;
+    opacity: 0; animation: rise .6s ease both;
+  }
+  .card:nth-child(1){ animation-delay: .18s; } .card:nth-child(2){ animation-delay: .26s; }
+  .card:nth-child(3){ animation-delay: .34s; } .card:nth-child(4){ animation-delay: .42s; }
+  .card:nth-child(5){ animation-delay: .50s; } .card:nth-child(6){ animation-delay: .58s; }
+  .card::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; opacity: .5;
+    background: radial-gradient(220px 140px at 20% 0%, var(--tint), transparent 70%);
+    transition: opacity .35s;
+  }
+  .card:hover { transform: translateY(-6px); border-color: var(--tint-strong); }
+  .card:hover::before { opacity: .9; }
+  .card .num { font-family: ui-monospace, monospace; font-size: 12px; color: var(--tint-strong); }
+  .card h2 { margin: 14px 0 6px; font-size: 23px; letter-spacing: -.01em; }
+  .card .meta { font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--ink-faint);
+    letter-spacing: .04em; text-transform: uppercase; display: flex; gap: 8px; flex-wrap: wrap; }
+  .card .meta span { padding: 3px 8px; border: 1px solid var(--border); border-radius: 999px; }
+  .card .arrow { position: absolute; right: 22px; bottom: 22px; color: var(--tint-strong); font-size: 20px;
+    transition: transform .35s; }
+  .card:hover .arrow { transform: translate(4px,-4px); }
+
+  .c-ml   { --tint: rgba(89,184,176,.20);  --tint-strong: #59b8b0; }
+  .c-dl   { --tint: rgba(157,132,224,.20); --tint-strong: #9d84e0; }
+  .c-genai{ --tint: rgba(211,164,102,.22); --tint-strong: #d3a466; }
+  .c-agent{ --tint: rgba(224,131,152,.20); --tint-strong: #e08398; }
+  .c-sec  { --tint: rgba(127,199,154,.20); --tint-strong: #7fc79a; }
+  .c-err  { --tint: rgba(217,122,104,.20); --tint-strong: #d97a68; }
+
+  footer { margin-top: 60px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--ink-faint);
+    opacity: 0; animation: rise .6s ease .6s forwards;
+  }
+</style>
+
+<div class="glow"></div>
+<div class="wrap">
+  <div class="eyebrow">FinVault · Workflows</div>
+  <h1>Pipelines,<br>not paragraphs.</h1>
+
+  <div class="grid">
+    <a class="card c-ml" href="ml.html">
+      <span class="num">01</span>
+      <h2>ML</h2>
+      <div class="meta"><span>zero-shot</span><span>7 stages</span></div>
+      <span class="arrow">↗</span>
+    </a>
+    <a class="card c-dl" href="dl.html">
+      <span class="num">02</span>
+      <h2>DL</h2>
+      <div class="meta"><span>2 lanes</span><span>local encoders</span></div>
+      <span class="arrow">↗</span>
+    </a>
+    <a class="card c-genai" href="genai.html">
+      <span class="num">03</span>
+      <h2>GenAI</h2>
+      <div class="meta"><span>8 stages</span><span>RAG</span></div>
+      <span class="arrow">↗</span>
+    </a>
+    <a class="card c-agent" href="agentic.html">
+      <span class="num">04</span>
+      <h2>Agentic AI</h2>
+      <div class="meta"><span>4 agents</span><span>veto gate</span></div>
+      <span class="arrow">↗</span>
+    </a>
+    <a class="card c-sec" href="security.html">
+      <span class="num">05</span>
+      <h2>Security</h2>
+      <div class="meta"><span>10 stages</span><span>encrypt→audit→error boundary</span></div>
+      <span class="arrow">↗</span>
+    </a>
+    <a class="card c-err" href="../error-handling.html">
+      <span class="num">06</span>
+      <h2>Error handling</h2>
+      <div class="meta"><span>4 branches</span><span>raise → translate</span></div>
+      <span class="arrow">↗</span>
+    </a>
+  </div>
+
+  <footer>
+    <span>FinVault</span>
+    <span id="rev">rev 2026-08-31</span>
+  </footer>
+</div>

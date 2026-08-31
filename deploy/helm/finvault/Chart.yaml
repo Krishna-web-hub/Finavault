@@ -1,0 +1,25 @@
+apiVersion: v2
+name: finvault
+description: Secure multi-agent RAG platform for finance — encrypted at rest, ACL-gated retrieval, guardrailed agent orchestration.
+type: application
+
+# The chart's own version, bumped when the templates change.
+version: 0.1.0
+# The application version it deploys by default. Kept in step with the
+# project's pyproject version; the image tag defaults to this so a release
+# does not need a values override to deploy the matching image.
+appVersion: "0.1.0"
+
+keywords: [rag, llm, agents, finance, security]
+home: https://github.com/your-org/finvault
+maintainers:
+  - name: FinVault maintainers
+
+# Postgres, Qdrant and Redis are deliberately NOT subchart dependencies.
+# Each holds state that outlives a release: the documents table, the vector
+# collection, the master key's envelope-encrypted payloads. A `helm uninstall`
+# that took the database with it is a data-loss incident waiting for its first
+# typo. Point the chart at managed instances (or ones installed separately)
+# through values.yaml instead.
+annotations:
+  category: Analytics

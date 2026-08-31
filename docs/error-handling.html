@@ -1,0 +1,968 @@
+<title>FinVault Error Handling</title>
+<meta name="description" content="An illuminated reference to FinVault's failure taxonomy, request lifecycle, and logging contract.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=Italianno&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* ============================================================
+     THE CODEX — an illuminated ledger of failure.
+     FinVault keeps a hash-chained, append-only book; this is the
+     scribe's marginalia to it. Vellum by day, the vault by night.
+     ============================================================ */
+
+  :root {
+    /* Vellum */
+    --bg:          #f7f2e6;
+    --bg-deep:     #efe8d6;
+    --surface:     #fffdf6;
+    --surface-2:   #f8f3e6;
+    --surface-3:   #efe7d4;
+    --rule:        #ddd2b8;
+    --rule-strong: #c8b993;
+    --ink:         #241e16;
+    --ink-dim:     #6b6050;
+    --ink-faint:   #9c9077;
+
+    /* Gilt */
+    --gilt:        #a5762a;
+    --gilt-bright: #c69233;
+    --gilt-soft:   rgba(165, 118, 42, .11);
+    --gilt-line:   rgba(165, 118, 42, .34);
+
+    /* The four hands */
+    --client:        #8a6d1f;  --client-soft:     rgba(138, 109, 31, .12);
+    --policy:        #a5762a;  --policy-soft:     rgba(165, 118, 42, .12);
+    --dependency:    #a3402c;  --dependency-soft: rgba(163, 64, 44, .10);
+    --internal:      #6d4a7a;  --internal-soft:   rgba(109, 74, 122, .10);
+
+    --shadow:      0 24px 60px rgba(120, 96, 52, .13);
+    --shadow-lift: 0 32px 74px rgba(120, 96, 52, .20);
+    --grain:       rgba(120, 96, 52, .028);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:          #12100d;
+      --bg-deep:     #0c0a08;
+      --surface:     #1b1813;
+      --surface-2:   #221e18;
+      --surface-3:   #2a251d;
+      --rule:        #332d24;
+      --rule-strong: #4a4133;
+      --ink:         #ece5d6;
+      --ink-dim:     #a89e8c;
+      --ink-faint:   #766d5e;
+
+      --gilt:        #d9ad57;
+      --gilt-bright: #f0cb7d;
+      --gilt-soft:   rgba(217, 173, 87, .13);
+      --gilt-line:   rgba(217, 173, 87, .32);
+
+      --client:      #dcbc55;  --client-soft:     rgba(220, 188, 85, .14);
+      --policy:      #d9ad57;  --policy-soft:     rgba(217, 173, 87, .14);
+      --dependency:  #e08a72;  --dependency-soft: rgba(224, 138, 114, .14);
+      --internal:    #c194d1;  --internal-soft:   rgba(193, 148, 209, .13);
+
+      --shadow:      0 24px 60px rgba(0, 0, 0, .48);
+      --shadow-lift: 0 34px 80px rgba(0, 0, 0, .62);
+      --grain:       rgba(217, 173, 87, .022);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg:          #12100d;
+    --bg-deep:     #0c0a08;
+    --surface:     #1b1813;
+    --surface-2:   #221e18;
+    --surface-3:   #2a251d;
+    --rule:        #332d24;
+    --rule-strong: #4a4133;
+    --ink:         #ece5d6;
+    --ink-dim:     #a89e8c;
+    --ink-faint:   #766d5e;
+
+    --gilt:        #d9ad57;
+    --gilt-bright: #f0cb7d;
+    --gilt-soft:   rgba(217, 173, 87, .13);
+    --gilt-line:   rgba(217, 173, 87, .32);
+
+    --client:      #dcbc55;  --client-soft:     rgba(220, 188, 85, .14);
+    --policy:      #d9ad57;  --policy-soft:     rgba(217, 173, 87, .14);
+    --dependency:  #e08a72;  --dependency-soft: rgba(224, 138, 114, .14);
+    --internal:    #c194d1;  --internal-soft:   rgba(193, 148, 209, .13);
+
+    --shadow:      0 24px 60px rgba(0, 0, 0, .48);
+    --shadow-lift: 0 34px 80px rgba(0, 0, 0, .62);
+    --grain:       rgba(217, 173, 87, .022);
+  }
+
+  * { box-sizing: border-box; }
+  html { text-size-adjust: 100%; scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse 120% 70% at 50% -10%, var(--gilt-soft), transparent 62%),
+      radial-gradient(ellipse 90% 50% at 100% 100%, var(--grain), transparent 70%);
+    background-attachment: fixed;
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 16.5px;
+    line-height: 1.68;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  code, pre, .mono { font-family: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace; }
+
+  .script {
+    font-family: 'Italianno', 'Cormorant Garamond', cursive;
+    font-weight: 400;
+    line-height: 1;
+  }
+
+  a { color: var(--gilt); text-decoration-thickness: 1px; text-underline-offset: 4px; }
+  a:hover { color: var(--gilt-bright); }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--gilt); outline-offset: 4px; border-radius: 3px;
+  }
+
+  ::selection { background: var(--gilt-soft); color: var(--ink); }
+
+  .doc { max-width: 880px; margin: 0 auto; padding: 0 26px 130px; }
+  .wide { max-width: 1080px; }
+
+  /* ============ animation primitives ============ */
+  @keyframes rise    { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+  @keyframes riseSm  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes fade    { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes glide   { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+  @keyframes ink     { to { stroke-dashoffset: 0; } }
+  @keyframes gleam   { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+  @keyframes spin    { to { transform: rotate(360deg); } }
+
+  /* Load sequence — the page assembles itself in reading order. */
+  .seq { opacity: 0; animation: rise .82s cubic-bezier(.22,.68,.28,1) both; }
+  .d1 { animation-delay: .08s; } .d2 { animation-delay: .22s; }
+  .d3 { animation-delay: .36s; } .d4 { animation-delay: .52s; }
+  .d5 { animation-delay: .68s; } .d6 { animation-delay: .84s; }
+
+  /* Scroll reveal — set by IntersectionObserver. */
+  .reveal { opacity: 0; transform: translateY(26px); transition: opacity .78s cubic-bezier(.22,.68,.28,1), transform .78s cubic-bezier(.22,.68,.28,1); }
+  .reveal.seen { opacity: 1; transform: none; }
+  .reveal[data-stagger] { transition-delay: calc(var(--s, 0) * 78ms); }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: .001ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: .001ms !important;
+      transition-delay: 0ms !important;
+    }
+    .seq, .reveal { opacity: 1 !important; transform: none !important; }
+    .flourish path, .spine-fill { stroke-dashoffset: 0 !important; }
+  }
+
+  /* ============ masthead ============ */
+  header.masthead {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 18px; flex-wrap: wrap; padding: 34px 0 0;
+  }
+  .colophon { display: flex; align-items: center; gap: 13px; }
+  .seal {
+    width: 34px; height: 34px; flex: none; color: var(--gilt);
+  }
+  .seal circle, .seal path { transition: transform .8s ease; transform-origin: 50% 50%; }
+  .colophon:hover .seal .ring { animation: spin 9s linear infinite; }
+  .wordmark {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 20px; font-weight: 600; letter-spacing: .2em;
+    text-transform: uppercase; color: var(--ink);
+  }
+  .folio {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--ink-faint);
+  }
+
+  /* ============ hero ============ */
+  .hero { padding: 74px 0 8px; text-align: center; }
+  .hero .overline {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600;
+    letter-spacing: .38em; text-transform: uppercase; color: var(--gilt);
+    display: block; margin-bottom: 26px;
+  }
+  h1 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: clamp(46px, 9.2vw, 92px);
+    font-weight: 300; line-height: 1.02; letter-spacing: -.018em;
+    margin: 0; text-wrap: balance; color: var(--ink);
+  }
+  h1 em {
+    font-style: italic; font-weight: 400; color: var(--gilt);
+    position: relative;
+  }
+  .hero .amp {
+    font-family: 'Italianno', cursive; font-size: 1.18em;
+    color: var(--gilt); font-style: normal; line-height: 0;
+  }
+
+  /* The pen stroke that inks itself beneath the title. */
+  .flourish { display: block; margin: 26px auto 0; width: min(440px, 82%); height: 46px; color: var(--gilt); }
+  .flourish path {
+    fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;
+    stroke-dasharray: 720; stroke-dashoffset: 720;
+    animation: ink 2.1s cubic-bezier(.5,.02,.32,1) .74s forwards;
+  }
+  .flourish .hair { stroke-width: 1; opacity: .68; }
+  .flourish .stem { stroke-width: 2.4; }
+  .flourish .bead { fill: currentColor; stroke: none; opacity: 0; animation: fade .5s ease 2.5s forwards; }
+
+  .standfirst {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: clamp(20px, 2.6vw, 25px); font-weight: 400; font-style: italic;
+    line-height: 1.55; color: var(--ink-dim);
+    max-width: 30em; margin: 30px auto 0; text-wrap: balance;
+  }
+  .standfirst b { font-style: normal; font-weight: 600; color: var(--ink); }
+
+  /* ============ the three doors ============ */
+  .doors {
+    margin-top: 62px; display: grid; gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(244px, 1fr));
+  }
+  .door {
+    position: relative; background: var(--surface);
+    border: 1px solid var(--rule); border-radius: 3px;
+    padding: 30px 24px 26px; overflow: hidden;
+    transition: transform .5s cubic-bezier(.22,.68,.28,1), box-shadow .5s ease, border-color .5s ease;
+  }
+  .door::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse 90% 60% at 50% 0%, var(--gilt-soft), transparent 70%);
+    opacity: 0; transition: opacity .5s ease;
+  }
+  .door:hover { transform: translateY(-6px); border-color: var(--gilt-line); box-shadow: var(--shadow-lift); }
+  .door:hover::before { opacity: 1; }
+  .door .glyph {
+    font-family: 'Italianno', cursive; font-size: 52px; color: var(--gilt);
+    line-height: .7; display: block; margin-bottom: 14px;
+    transition: transform .5s cubic-bezier(.22,.68,.28,1);
+  }
+  .door:hover .glyph { transform: translateX(4px) rotate(-3deg); }
+  .door .q {
+    font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600;
+    letter-spacing: -.005em; margin-bottom: 8px; position: relative;
+  }
+  .door .a { font-size: 14.5px; line-height: 1.6; color: var(--ink-dim); position: relative; }
+  .door .a code { font-size: 12.8px; }
+
+  /* ============ sections ============ */
+  section { margin-top: 116px; position: relative; }
+  .sec-head { position: relative; margin-bottom: 34px; }
+  .numeral {
+    font-family: 'Italianno', cursive; font-size: 82px; color: var(--gilt);
+    line-height: .62; opacity: .9; display: block; margin-bottom: 2px;
+  }
+  @media (min-width: 1180px) {
+    .numeral {
+      position: absolute; left: -104px; top: -6px; margin: 0;
+      font-size: 96px; opacity: .78;
+    }
+  }
+  h2 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: clamp(31px, 4.4vw, 44px); font-weight: 400; line-height: 1.12;
+    letter-spacing: -.014em; margin: 0; text-wrap: balance; color: var(--ink);
+  }
+  h2 em { font-style: italic; color: var(--gilt); }
+  .rule-ink { display: block; width: 100%; height: 10px; margin-top: 16px; color: var(--gilt-line); }
+  .rule-ink path {
+    fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round;
+    stroke-dasharray: 1100; stroke-dashoffset: 1100;
+    transition: stroke-dashoffset 1.5s cubic-bezier(.4,.03,.2,1);
+  }
+  .seen .rule-ink path, .sec-head.seen .rule-ink path { stroke-dashoffset: 0; }
+
+  h3 {
+    font-family: 'Cormorant Garamond', serif; font-size: 21px; font-weight: 600;
+    letter-spacing: -.008em; margin: 0 0 7px; color: var(--ink);
+  }
+  p { margin: 0 0 16px; max-width: 68ch; }
+  p:last-child { margin-bottom: 0; }
+  .lede {
+    font-family: 'Cormorant Garamond', serif; font-size: 20.5px; font-style: italic;
+    line-height: 1.6; color: var(--ink-dim); max-width: 44em; margin-bottom: 34px;
+  }
+
+  /* ============ the four hands ============ */
+  .hands { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(252px, 1fr)); }
+  .hand {
+    position: relative; background: var(--surface);
+    border: 1px solid var(--rule); border-radius: 3px; padding: 0 24px 24px;
+    overflow: hidden;
+    transition: transform .5s cubic-bezier(.22,.68,.28,1), box-shadow .5s ease, border-color .5s ease;
+  }
+  .hand::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--tint), transparent);
+    transform: scaleX(.34); transform-origin: left;
+    transition: transform .7s cubic-bezier(.22,.68,.28,1);
+  }
+  .hand:hover { transform: translateY(-5px); box-shadow: var(--shadow-lift); border-color: var(--tint); }
+  .hand:hover::after { transform: scaleX(1); }
+  .hand.client     { --tint: var(--client);     --tint-soft: var(--client-soft); }
+  .hand.policy     { --tint: var(--policy);     --tint-soft: var(--policy-soft); }
+  .hand.dependency { --tint: var(--dependency); --tint-soft: var(--dependency-soft); }
+  .hand.internal   { --tint: var(--internal);   --tint-soft: var(--internal-soft); }
+  .hand .verdict {
+    display: inline-block; margin: 24px 0 12px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600;
+    letter-spacing: .15em; text-transform: uppercase;
+    color: var(--tint); background: var(--tint-soft);
+    padding: 4px 11px; border-radius: 999px;
+  }
+  .hand h3 {
+    font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600;
+    letter-spacing: -.01em; color: var(--tint); margin-bottom: 10px;
+  }
+  .hand p { font-size: 14.5px; line-height: 1.6; color: var(--ink-dim); margin: 0 0 14px; }
+  .hand .verso {
+    font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 16px;
+    line-height: 1.5; color: var(--ink-faint);
+    border-top: 1px solid var(--rule); padding-top: 13px; margin: 0;
+  }
+  .hand .verso b { font-style: normal; font-weight: 600; color: var(--tint); }
+
+  /* ============ the register (table) ============ */
+  .register {
+    overflow-x: auto; border: 1px solid var(--rule); border-radius: 3px;
+    background: var(--surface); box-shadow: var(--shadow);
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13.5px; }
+  thead th {
+    text-align: left; font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+    font-weight: 600; letter-spacing: .17em; text-transform: uppercase;
+    color: var(--ink-faint); padding: 15px 16px;
+    border-bottom: 1px solid var(--rule-strong);
+    background: var(--surface-2); white-space: nowrap;
+  }
+  tbody td { padding: 12px 16px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr { transition: background .35s ease; }
+  tbody tr:not(.hand-row):hover { background: var(--surface-2); }
+  tr.hand-row td {
+    background: var(--surface-3);
+    font-family: 'Cormorant Garamond', serif; font-size: 17px; font-style: italic;
+    color: var(--ink); padding: 13px 16px;
+  }
+  td.cls { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; white-space: nowrap; }
+  td.cls .branchmark { color: var(--tint, var(--ink-faint)); opacity: .7; }
+  td.code { font-family: 'IBM Plex Mono', monospace; font-size: 11.8px; color: var(--ink-dim); white-space: nowrap; }
+  td.num  { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.note { color: var(--ink-dim); min-width: 250px; line-height: 1.55; }
+  .lamp {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    margin-right: 10px; vertical-align: 1px; background: var(--tint, var(--ink-faint));
+    box-shadow: 0 0 0 3px var(--tint-soft, transparent);
+    animation: gleam 3.4s ease-in-out infinite;
+  }
+  tr.b-client     { --tint: var(--client);     --tint-soft: var(--client-soft); }
+  tr.b-policy     { --tint: var(--policy);     --tint-soft: var(--policy-soft); }
+  tr.b-dependency { --tint: var(--dependency); --tint-soft: var(--dependency-soft); }
+  tr.b-internal   { --tint: var(--internal);   --tint-soft: var(--internal-soft); }
+  .yes, .no {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600;
+    letter-spacing: .1em; padding: 2px 8px; border-radius: 999px;
+  }
+  .yes { color: var(--dependency); background: var(--dependency-soft); }
+  .no  { color: var(--ink-faint);  background: var(--surface-3); }
+
+  /* ============ the spine (lifecycle) ============ */
+  .spine { position: relative; padding-left: 62px; }
+  .spine::before {
+    content: ''; position: absolute; left: 21px; top: 10px; bottom: 10px;
+    width: 1px; background: var(--rule-strong);
+  }
+  .spine-track {
+    position: absolute; left: 21px; top: 10px; bottom: 10px; width: 1px;
+    background: linear-gradient(180deg, var(--gilt), var(--gilt-line));
+    transform: scaleY(0); transform-origin: top;
+    transition: transform 1.8s cubic-bezier(.35,.02,.25,1);
+  }
+  .spine.seen .spine-track { transform: scaleY(1); }
+  .leaf { position: relative; padding: 26px 0; }
+  .leaf + .leaf { border-top: 1px solid var(--rule); }
+  .leaf .bead {
+    position: absolute; left: -47px; top: 30px;
+    width: 13px; height: 13px; border-radius: 50%;
+    background: var(--bg); border: 1.5px solid var(--gilt);
+    transition: transform .5s cubic-bezier(.34,1.56,.64,1), background .4s ease;
+  }
+  .leaf:hover .bead { transform: scale(1.42); background: var(--gilt); }
+  .leaf .ord {
+    font-family: 'Italianno', cursive; font-size: 40px; color: var(--gilt);
+    line-height: .8; display: block; margin-bottom: 6px; opacity: .85;
+  }
+  .leaf p { font-size: 15px; color: var(--ink-dim); margin: 0; }
+  .leaf .locus {
+    display: inline-block; margin-top: 11px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+    color: var(--ink-faint); letter-spacing: .02em;
+  }
+  @media (max-width: 620px) {
+    .spine { padding-left: 40px; }
+    .spine::before, .spine-track { left: 11px; }
+    .leaf .bead { left: -35px; }
+  }
+
+  /* ============ facing pages (code) ============ */
+  .facing { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(322px, 1fr)); }
+  .folio-card {
+    background: var(--surface); border: 1px solid var(--rule); border-radius: 3px;
+    padding: 26px; box-shadow: var(--shadow);
+    transition: transform .5s cubic-bezier(.22,.68,.28,1), box-shadow .5s ease;
+  }
+  .folio-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); }
+  .folio-card p { font-size: 14.5px; color: var(--ink-dim); margin-bottom: 16px; }
+  pre {
+    background: var(--surface-2); border: 1px solid var(--rule); border-radius: 3px;
+    padding: 17px 19px; overflow-x: auto; font-size: 12.5px; line-height: 1.68;
+    margin: 0 0 18px; color: var(--ink);
+  }
+  .folio-card pre:last-child { margin-bottom: 0; }
+  pre .c { color: var(--ink-faint); font-style: italic; }
+  pre .k { color: var(--gilt); }
+  pre .s { color: var(--dependency); }
+  code:not(pre code) {
+    background: var(--surface-3); border-radius: 3px; padding: 2px 6px;
+    font-size: .86em; color: var(--ink);
+  }
+
+  /* ============ the canons (rules) ============ */
+  .canons { list-style: none; padding: 0; margin: 0; counter-reset: canon; }
+  .canons li {
+    position: relative; padding: 24px 0 24px 66px;
+    border-top: 1px solid var(--rule);
+    transition: padding-left .45s cubic-bezier(.22,.68,.28,1);
+  }
+  .canons li:last-child { border-bottom: 1px solid var(--rule); }
+  .canons li:hover { padding-left: 76px; }
+  .canons li::before {
+    counter-increment: canon; content: counter(canon, upper-roman);
+    position: absolute; left: 0; top: 26px;
+    font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 600;
+    letter-spacing: .06em; color: var(--gilt); opacity: .78;
+    transition: opacity .4s ease, transform .45s cubic-bezier(.22,.68,.28,1);
+  }
+  .canons li:hover::before { opacity: 1; transform: translateX(3px); }
+  .canons b {
+    display: block; font-family: 'Cormorant Garamond', serif;
+    font-size: 21px; font-weight: 600; letter-spacing: -.008em; margin-bottom: 5px;
+  }
+  .canons span { display: block; font-size: 15px; color: var(--ink-dim); max-width: 70ch; }
+
+  /* ============ index rows ============ */
+  .index { border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; background: var(--surface); }
+  .entry {
+    display: grid; grid-template-columns: minmax(140px, 200px) 1fr; gap: 20px;
+    padding: 15px 20px; border-bottom: 1px solid var(--rule);
+    transition: background .35s ease, padding-left .4s ease;
+  }
+  .entry:last-child { border-bottom: 0; }
+  .entry:hover { background: var(--surface-2); padding-left: 26px; }
+  .entry code { background: none; padding: 0; font-size: 12.5px; color: var(--gilt); }
+  .entry span { font-size: 14.5px; color: var(--ink-dim); }
+  @media (max-width: 560px) { .entry { grid-template-columns: 1fr; gap: 5px; } }
+
+  /* ============ marginal note ============ */
+  .marginalia {
+    position: relative; margin: 0 0 18px;
+    padding: 22px 26px 22px 30px;
+    background: var(--gilt-soft); border-radius: 0 3px 3px 0;
+  }
+  .marginalia::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+    background: linear-gradient(180deg, var(--gilt), transparent);
+  }
+  .marginalia .pilcrow {
+    font-family: 'Italianno', cursive; font-size: 38px; color: var(--gilt);
+    line-height: .6; display: block; margin-bottom: 8px;
+  }
+  .marginalia p { font-size: 15px; color: var(--ink-dim); margin: 0; }
+  .marginalia p + p { margin-top: 11px; }
+  .marginalia b { color: var(--ink); font-weight: 600; }
+
+  /* ============ colophon ============ */
+  footer {
+    margin-top: 108px; padding-top: 30px; border-top: 1px solid var(--rule);
+    text-align: center;
+  }
+  footer .mark { font-family: 'Italianno', cursive; font-size: 48px; color: var(--gilt); line-height: .8; }
+  footer .files {
+    display: block; margin-top: 16px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+    color: var(--ink-faint); letter-spacing: .03em; line-height: 1.9;
+  }
+</style>
+
+<div class="doc wide">
+
+  <header class="masthead seq d1">
+    <div class="colophon">
+      <svg class="seal" viewBox="0 0 40 40" aria-hidden="true">
+        <circle class="ring" cx="20" cy="20" r="17.5" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4"/>
+        <circle cx="20" cy="20" r="12" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M20 9.5 L20 30.5 M12 15 L28 25 M28 15 L12 25" stroke="currentColor" stroke-width=".9" opacity=".45"/>
+        <circle cx="20" cy="20" r="3.4" fill="currentColor"/>
+      </svg>
+      <span class="wordmark">FinVault</span>
+    </div>
+    <span class="folio">Codex of Failure · rev 2026-08-31</span>
+  </header>
+
+  <div class="hero">
+    <span class="overline seq d2">The book of what goes wrong</span>
+    <h1 class="seq d3">Error handling,<br><em>illuminated</em></h1>
+
+    <svg class="flourish" viewBox="0 0 440 46" aria-hidden="true">
+      <path class="hair" d="M8 30 C 60 30, 84 12, 128 12 C 168 12, 182 30, 220 30 C 258 30, 272 12, 312 12 C 356 12, 380 30, 432 30"/>
+      <path class="stem" d="M60 34 C 120 34, 170 34, 220 34 C 270 34, 320 34, 380 34"/>
+      <circle class="bead" cx="220" cy="34" r="3.4"/>
+      <circle class="bead" cx="60" cy="34" r="2"/>
+      <circle class="bead" cx="380" cy="34" r="2"/>
+    </svg>
+
+    <p class="standfirst seq d4">
+      Every deliberate failure is one class in <b>one hierarchy</b>, carrying its own
+      status, its own vetted wording, and the fields you need to find it.
+      Routes raise <span class="amp">&amp;</span> a single layer translates.
+    </p>
+  </div>
+
+  <div class="doors">
+    <div class="door seq d5">
+      <span class="glyph">I</span>
+      <div class="q">Debugging an error</div>
+      <div class="a">Find its <code>code</code> in the register below, then read that class's docstring in <code>src/finvault/errors.py</code>.</div>
+    </div>
+    <div class="door seq d5" style="animation-delay:.76s">
+      <span class="glyph">II</span>
+      <div class="q">A user reported one</div>
+      <div class="a">Ask for the <code>request_id</code> in the message and <code>grep</code> it. That is the whole search.</div>
+    </div>
+    <div class="door seq d6" style="animation-delay:.88s">
+      <span class="glyph">III</span>
+      <div class="q">Adding a failure mode</div>
+      <div class="a">Add a class to <code>errors.py</code>; raise it where you detect it. Nothing in the API layer changes.</div>
+    </div>
+  </div>
+
+  <!-- ======================= I. THE FOUR HANDS ======================= -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="numeral">I</span>
+      <h2>Whose fault it is <em>decides everything else</em></h2>
+      <svg class="rule-ink" viewBox="0 0 1000 10" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 5 C 250 1, 500 9, 750 5 C 870 3, 940 5, 1000 5"/>
+      </svg>
+    </div>
+
+    <p class="lede reveal">
+      The branch an exception sits in determines its status code, its log level, whether a
+      traceback is attached, and whether the caller is told to retry. None of that is
+      decided at the raise site.
+    </p>
+
+    <div class="hands">
+      <div class="hand client reveal" data-stagger style="--s:0">
+        <span class="verdict">4xx · expected</span>
+        <h3>ClientError</h3>
+        <p>The request itself is wrong — bad token, no clearance, unusable input, oversized upload. Retrying it unchanged fails identically.</p>
+        <p class="verso"><b>Warning</b>, no traceback. The message is safe to return verbatim.</p>
+      </div>
+      <div class="hand policy reveal" data-stagger style="--s:1">
+        <span class="verdict">403 · expected</span>
+        <h3>PolicyError</h3>
+        <p>The system refused on purpose. Nothing is broken; the refusal <em>is</em> the correct behavior. Fires on data the caller never named.</p>
+        <p class="verso"><b>Warning</b>, no traceback. Usually becomes a blocked result.</p>
+      </div>
+      <div class="hand dependency reveal" data-stagger style="--s:2">
+        <span class="verdict">503 · incident</span>
+        <h3>DependencyError</h3>
+        <p>An upstream failed — the LLM provider, Postgres, Qdrant. The caller sees generic wording, because <code>str(exc)</code> here carries provider URLs and error bodies.</p>
+        <p class="verso"><b>Error</b> + traceback. Every catch site must fail closed.</p>
+      </div>
+      <div class="hand internal reveal" data-stagger style="--s:3">
+        <span class="verdict">500 · incident</span>
+        <h3>InternalError</h3>
+        <p>Our bug: an invariant we control was violated. Anything that is not a <code>FinVaultError</code> is treated as one of these.</p>
+        <p class="verso"><b>Error</b> + traceback. The fix is code, not config.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= II. THE REGISTER ======================= -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="numeral">II</span>
+      <h2>The register of <em>every failure</em></h2>
+      <svg class="rule-ink" viewBox="0 0 1000 10" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 5 C 250 1, 500 9, 750 5 C 870 3, 940 5, 1000 5"/>
+      </svg>
+    </div>
+
+    <p class="lede reveal">
+      <code>code</code> is the stable identifier — clients match on it and log queries group
+      by it, so it never changes once shipped, even if the class is renamed.
+      <code>retry</code> means an identical retry could plausibly succeed with nothing else changed.
+    </p>
+
+    <div class="register reveal">
+      <table>
+        <thead>
+          <tr><th>Class</th><th>code</th><th>HTTP</th><th>Retry</th><th>Raised by · handling</th></tr>
+        </thead>
+        <tbody>
+          <tr class="hand-row b-client"><td colspan="5"><span class="lamp"></span>ClientError — the caller got it wrong</td></tr>
+          <tr class="b-client">
+            <td class="cls"><span class="branchmark">└ </span>AuthenticationError</td>
+            <td class="code">authentication_failed</td><td class="num">401</td><td><span class="no">no</span></td>
+            <td class="note"><code>api/auth.py</code> — missing, malformed, expired or forged token. All four report identically; which one it was goes to the log.</td>
+          </tr>
+          <tr class="b-client">
+            <td class="cls"><span class="branchmark">└ </span>AccessDeniedError</td>
+            <td class="code">access_denied</td><td class="num">403</td><td><span class="no">no</span></td>
+            <td class="note"><code>security/access_control.py</code> and compliance RBAC. Retrieval paths drop inaccessible records silently instead, so a 403 never confirms a document exists.</td>
+          </tr>
+          <tr class="b-client">
+            <td class="cls"><span class="branchmark">└ </span>NotFoundError</td>
+            <td class="code">not_found</td><td class="num">404</td><td><span class="no">no</span></td>
+            <td class="note">Absent and "exists but not yours" are deliberately indistinguishable.</td>
+          </tr>
+          <tr class="b-client">
+            <td class="cls"><span class="branchmark">└ </span>InvalidRequestError</td>
+            <td class="code">invalid_request</td><td class="num">400</td><td><span class="no">no</span></td>
+            <td class="note">Schema-valid but unusable — the checks Pydantic cannot express.</td>
+          </tr>
+          <tr class="b-client">
+            <td class="cls"><span class="branchmark">└ </span>PayloadTooLargeError</td>
+            <td class="code">payload_too_large</td><td class="num">413</td><td><span class="no">no</span></td>
+            <td class="note"><code>api/uploads.py</code> — checked against the declared size <em>and</em> the bytes actually streamed, because a client can lie about the first.</td>
+          </tr>
+          <tr class="b-client">
+            <td class="cls"><span class="branchmark">└ </span>UnsupportedDocumentError</td>
+            <td class="code">unsupported_document_type</td><td class="num">415</td><td><span class="no">no</span></td>
+            <td class="note"><code>ingestion/loaders.py</code> — the message names the supported types.</td>
+          </tr>
+          <tr class="b-client">
+            <td class="cls"><span class="branchmark">└ </span>ReviewQueueError</td>
+            <td class="code">review_queue_error</td><td class="num">400</td><td><span class="no">no</span></td>
+            <td class="note"><code>security/review_queue.py</code> — an illegal status transition, e.g. resolving an item back to "pending".</td>
+          </tr>
+          <tr class="b-client">
+            <td class="cls"><span class="branchmark">&nbsp;&nbsp;&nbsp;└ </span>ReviewItemNotFoundError</td>
+            <td class="code">review_item_not_found</td><td class="num">404</td><td><span class="no">no</span></td>
+            <td class="note">Unknown item, or one belonging to another org — reported identically.</td>
+          </tr>
+
+          <tr class="hand-row b-policy"><td colspan="5"><span class="lamp"></span>PolicyError — refused on purpose</td></tr>
+          <tr class="b-policy">
+            <td class="cls"><span class="branchmark">└ </span>ExternalizationBlocked</td>
+            <td class="code">externalization_blocked</td><td class="num">403</td><td><span class="no">no</span></td>
+            <td class="note"><code>security/guardrails.py</code> — this classification may not enter an LLM prompt. Caught in <code>compliance_agent.py</code> and turned into a blocked verdict.</td>
+          </tr>
+
+          <tr class="hand-row b-dependency"><td colspan="5"><span class="lamp"></span>DependencyError — an upstream failed</td></tr>
+          <tr class="b-dependency">
+            <td class="cls"><span class="branchmark">└ </span>AgentExecutionError</td>
+            <td class="code">agent_execution_failed</td><td class="num">503</td><td><span class="yes">yes</span></td>
+            <td class="note"><code>agents/base.py</code> only — five raise sites, all in one file. Transient causes were already retried before this was raised; do not wrap it in another retry loop.</td>
+          </tr>
+          <tr class="b-dependency">
+            <td class="cls"><span class="branchmark">&nbsp;&nbsp;&nbsp;└ </span>TokenBudgetExceeded</td>
+            <td class="code">token_budget_exceeded</td><td class="num">503</td><td><span class="no">no</span></td>
+            <td class="note">The per-request ceiling shared across Orchestrator → Retriever → Analyst. Subclasses its parent so every existing handler treats it identically; only the reported reason differs.</td>
+          </tr>
+          <tr class="b-dependency">
+            <td class="cls"><span class="branchmark">&nbsp;&nbsp;&nbsp;└ </span>UpstreamProtocolError</td>
+            <td class="code">upstream_protocol_error</td><td class="num">503</td><td><span class="yes">yes</span></td>
+            <td class="note">HTTP 200 with a body the loop cannot use — <code>choices</code> null, or a turn with no text and no tool call. A spike here means a provider-side filter, not an outage.</td>
+          </tr>
+          <tr class="b-dependency">
+            <td class="cls"><span class="branchmark">└ </span>StorageError</td>
+            <td class="code">storage_unavailable</td><td class="num">503</td><td><span class="yes">yes</span></td>
+            <td class="note">Postgres, Qdrant, or the graph store. Never treat a failed read as an empty result.</td>
+          </tr>
+
+          <tr class="hand-row b-internal"><td colspan="5"><span class="lamp"></span>InternalError — our bug</td></tr>
+          <tr class="b-internal">
+            <td class="cls">InternalError</td>
+            <td class="code">internal_error</td><td class="num">500</td><td><span class="no">no</span></td>
+            <td class="note">Also what any non-FinVault exception becomes at the boundary.</td>
+          </tr>
+          <tr class="b-internal">
+            <td class="cls"><span class="branchmark">└ </span>ConfigurationError</td>
+            <td class="code">configuration_error</td><td class="num">500</td><td><span class="no">no</span></td>
+            <td class="note">Missing key, unusable DSN, absent credential. Raise at startup — a deployment that cannot work should fail visibly, not one request at a time.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ======================= III. THE SPINE ======================= -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="numeral">III</span>
+      <h2>What becomes of <em>an exception</em></h2>
+      <svg class="rule-ink" viewBox="0 0 1000 10" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 5 C 250 1, 500 9, 750 5 C 870 3, 940 5, 1000 5"/>
+      </svg>
+    </div>
+
+    <p class="lede reveal">A genuine sequence, so it is numbered. Each step happens in exactly one file.</p>
+
+    <div class="spine reveal">
+      <div class="spine-track"></div>
+
+      <div class="leaf">
+        <span class="bead"></span>
+        <span class="ord">i</span>
+        <h3>A request gets an id</h3>
+        <p>Middleware stamps one, binds it for the request, and returns it in <code>X-Request-ID</code>. An inbound id is honored only if it is short and free of control characters — it lands in log records, so a newline could forge log lines.</p>
+        <span class="locus">api/error_handlers.py · RequestContextMiddleware</span>
+      </div>
+
+      <div class="leaf">
+        <span class="bead"></span>
+        <span class="ord">ii</span>
+        <h3>Auth binds the actor</h3>
+        <p>Once a token verifies, the user id and org join the request context, so every later record names who made the request. This is why <code>get_current_user</code> is <code>async</code> — a contextvar set in FastAPI's threadpool would be discarded.</p>
+        <span class="locus">api/auth.py · add_request_context()</span>
+      </div>
+
+      <div class="leaf">
+        <span class="bead"></span>
+        <span class="ord">iii</span>
+        <h3>Something raises</h3>
+        <p>The code that detects the problem raises the class that names it — operator detail in the message, grep-able values in <code>context</code>. It does not pick a status, write client-facing wording, or catch its own error to re-raise it as something else.</p>
+        <span class="locus">anywhere in src/finvault/</span>
+      </div>
+
+      <div class="leaf">
+        <span class="bead"></span>
+        <span class="ord">iv</span>
+        <h3>The handler translates it</h3>
+        <p>One of four handlers — for <code>FinVaultError</code>, <code>HTTPException</code>, validation errors, and everything else — logs it at the level its branch warrants and serializes it into the envelope opposite. This is the only place an exception becomes a response.</p>
+        <span class="locus">api/error_handlers.py</span>
+      </div>
+
+      <div class="leaf">
+        <span class="bead"></span>
+        <span class="ord">v</span>
+        <h3>The request is logged out</h3>
+        <p>Status and duration, under the same request id as everything else the request emitted.</p>
+        <span class="locus">api/error_handlers.py · request_finished</span>
+      </div>
+    </div>
+
+    <div class="marginalia reveal" style="margin-top:36px">
+      <span class="pilcrow">¶</span>
+      <p><b>Two endpoints deliberately break step iv.</b> <code>POST /query</code> and <code>POST /query/stream</code> catch everything and return HTTP 200 with <code>blocked: true</code> and a <code>block_reason</code> — because "no answer" is already a first-class outcome there, and a partial execution trace with a stated reason serves the UI better than an error page.</p>
+      <p><code>block_reason</code> is the exception's own <code>code</code>, so the string the frontend shows, the string in the logs, and the string in the audit row are the same one.</p>
+    </div>
+  </section>
+
+  <!-- ======================= IV. FACING PAGES ======================= -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="numeral">IV</span>
+      <h2>One envelope, <em>one log line</em>, one id</h2>
+      <svg class="rule-ink" viewBox="0 0 1000 10" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 5 C 250 1, 500 9, 750 5 C 870 3, 940 5, 1000 5"/>
+      </svg>
+    </div>
+
+    <div class="facing">
+      <div class="folio-card reveal" data-stagger style="--s:0">
+        <h3>What the caller receives</h3>
+        <p>Identical for every failure — ours, FastAPI's, or an unhandled bug.</p>
+<pre><span class="c">HTTP/1.1 403 Forbidden
+X-Request-ID: 412e2f93…</span>
+
+{
+  <span class="k">"error"</span>: {
+    <span class="k">"code"</span>: <span class="s">"access_denied"</span>,
+    <span class="k">"message"</span>: <span class="s">"You are not authorized to
+                access the compliance review queue."</span>,
+    <span class="k">"retryable"</span>: false,
+    <span class="k">"request_id"</span>: <span class="s">"412e2f93…"</span>
+  }
+}</pre>
+      </div>
+      <div class="folio-card reveal" data-stagger style="--s:1">
+        <h3>What you receive</h3>
+        <p>The same event, carrying the detail kept out of the response.</p>
+<pre>{
+  <span class="k">"level"</span>: <span class="s">"WARNING"</span>,
+  <span class="k">"event"</span>: <span class="s">"request_failed"</span>,
+  <span class="k">"request_id"</span>: <span class="s">"412e2f93…"</span>,
+  <span class="k">"actor"</span>: <span class="s">"ba0222e5…"</span>,
+  <span class="k">"org_id"</span>: <span class="s">"org-a"</span>,
+  <span class="k">"path"</span>: <span class="s">"/compliance/review-queue"</span>,
+  <span class="k">"error_code"</span>: <span class="s">"access_denied"</span>,
+  <span class="k">"role"</span>: <span class="s">"analyst"</span>,
+  <span class="k">"required_role"</span>: <span class="s">"compliance_officer"</span>
+}</pre>
+      </div>
+    </div>
+
+    <p class="reveal" style="margin-top:24px">
+      The split is the point: <code>message</code> is vetted wording the class owns; the
+      operator detail and everything in <code>context</code> go only to the log. An unhandled
+      exception is answered with an opaque 500, because its message could carry a connection
+      string, a prompt fragment, or decrypted content.
+    </p>
+  </section>
+
+  <!-- ======================= V. THE CANONS ======================= -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="numeral">V</span>
+      <h2>What the codebase <em>holds itself to</em></h2>
+      <svg class="rule-ink" viewBox="0 0 1000 10" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 5 C 250 1, 500 9, 750 5 C 870 3, 940 5, 1000 5"/>
+      </svg>
+    </div>
+
+    <ul class="canons">
+      <li class="reveal" data-stagger style="--s:0">
+        <b>No module defines its own exception class.</b>
+        <span>They all live in <code>errors.py</code>. The modules that used to define them re-export from there, so existing imports and <code>except</code> clauses are untouched.</span>
+      </li>
+      <li class="reveal" data-stagger style="--s:1">
+        <b>Routes raise; they do not translate.</b>
+        <span>Fourteen hand-written <code>HTTPException</code> calls each used to invent a status and a message. Adding a failure mode now means adding a class and raising it — the API layer stays as it is.</span>
+      </li>
+      <li class="reveal" data-stagger style="--s:2">
+        <b>Fail closed, always.</b>
+        <span>A dependency failure never degrades into a guess. A failed retrieval is not "nothing found"; an unreachable compliance reviewer is a block, not an approval; an empty model turn is a truncation failure, not "the model had nothing to say".</span>
+      </li>
+      <li class="reveal" data-stagger style="--s:3">
+        <b>Log level follows the branch, not the call site.</b>
+        <span><code>log_exception()</code> decides: expected refusals at warning with no traceback, incidents at error with one. A stack trace on every routine 403 only trains readers to skip stack traces.</span>
+      </li>
+      <li class="reveal" data-stagger style="--s:4">
+        <b>Nothing is caught silently.</b>
+        <span>Every <code>except</code> either re-raises or logs — including the ones that degrade on purpose, like extraction failing while ingestion continues. The single exception is the numeric-column test in <code>tabular.py</code>, where a <code>ValueError</code> <em>is</em> the answer.</span>
+      </li>
+      <li class="reveal" data-stagger style="--s:5">
+        <b>Errors carry structured context, not formatted strings.</b>
+        <span><code>context={"role": role, "required_role": required}</code> becomes log fields you can filter by. It must never hold document plaintext, decrypted content, or credentials.</span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ======================= VI. THE LANTERN ======================= -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="numeral">VI</span>
+      <h2>Finding <em>the record</em></h2>
+      <svg class="rule-ink" viewBox="0 0 1000 10" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 5 C 250 1, 500 9, 750 5 C 870 3, 940 5, 1000 5"/>
+      </svg>
+    </div>
+
+    <p class="lede reveal">
+      One JSON object per line, one <code>request_id</code> per request, on every record that
+      request emits. Set <code>FINVAULT_LOG_FORMAT=text</code> for a readable console while
+      developing. <code>DEBUG</code> is safe to run — no call site logs document content or secrets.
+    </p>
+
+    <div class="index reveal">
+      <div class="entry"><code>request_id</code><span>Correlates everything. Also in the response header and every error body.</span></div>
+      <div class="entry"><code>actor</code> · <code>org_id</code><span>Who made the request, bound the moment auth resolves.</span></div>
+      <div class="entry"><code>event</code><span>The log message: a stable snake_case name, never an interpolated sentence.</span></div>
+      <div class="entry"><code>error_code</code><span>The exception's <code>code</code>. Group by this to count failure modes.</span></div>
+      <div class="entry"><code>error_type</code><span>The class name — the code's finer-grained companion.</span></div>
+      <div class="entry"><code>status</code> · <code>duration_ms</code><span>On <code>request_finished</code>, for every request including the successful ones.</span></div>
+    </div>
+
+    <h3 class="reveal" style="margin-top:38px">Attaching your own fields</h3>
+    <div class="reveal">
+<pre>logger.info(<span class="s">"document_ingested"</span>, extra=extra_fields(document_id=doc.id, chunks=<span class="s">42</span>))</pre>
+      <p>
+        Always <code>extra_fields(...)</code>, never a bare <code>extra={...}</code>: a field named
+        like a stdlib <code>LogRecord</code> attribute (<code>module</code>, <code>message</code>,
+        <code>args</code>) makes <code>logging</code> raise. On an error path, a log call is the
+        last thing that should throw.
+      </p>
+    </div>
+
+    <div class="marginalia reveal" style="margin-top:26px">
+      <span class="pilcrow">¶</span>
+      <p><b>The one propagation trap.</b> Context follows <code>await</code> and
+      <code>asyncio.to_thread</code>, but <em>not</em> a bare <code>threading.Thread</code> — which
+      is exactly what <code>POST /query/stream</code> uses to run the orchestrator. Capture with
+      <code>request_context()</code> on the way in and restore with
+      <code>run_in_request_context()</code> inside the thread, or every log line from a streamed
+      query is orphaned from the request that caused it.</p>
+    </div>
+  </section>
+
+  <!-- ======================= VII. THE WITNESSES ======================= -->
+  <section>
+    <div class="sec-head reveal">
+      <span class="numeral">VII</span>
+      <h2>What holds this <em>in place</em></h2>
+      <svg class="rule-ink" viewBox="0 0 1000 10" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 5 C 250 1, 500 9, 750 5 C 870 3, 940 5, 1000 5"/>
+      </svg>
+    </div>
+
+    <p class="lede reveal">
+      The value of a taxonomy is entirely in its consistency, so the invariants are tested
+      rather than documented and hoped for.
+    </p>
+
+    <div class="index reveal">
+      <div class="entry"><code>test_errors.py</code><span>Codes are unique; every class is exported; branch and status agree; context never reaches the client body.</span></div>
+      <div class="entry"><code>test_error_handlers.py</code><span>The HTTP contract end to end — envelope shape, opaque 500s, request-id round trip, a forged inbound id rejected, log level per branch.</span></div>
+      <div class="entry"><code>test_auth_errors.py</code><span>Every rejection reports one code; the reason is logged and never returned; the actor is bound to the request's records.</span></div>
+      <div class="entry"><code>test_observability.py</code><span>Fields land as real record attributes; context unwinds between requests and crosses into a raw thread.</span></div>
+      <div class="entry"><code>test_uploads.py</code><span>A lying <code>Content-Length</code> is caught mid-stream; the temp file is gone on every exit path.</span></div>
+    </div>
+  </section>
+
+  <footer class="reveal">
+    <div class="mark">finis</div>
+    <span class="files">finvault · errors.py · observability.py · api/error_handlers.py · api/uploads.py<br>rev 2026-08-31</span>
+  </footer>
+
+</div>
+
+<script>
+  // Scroll-triggered illumination. Each element inks itself in once, as it
+  // arrives; the observer releases it afterwards so nothing re-animates on
+  // the way back up.
+  (function () {
+    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var targets = document.querySelectorAll('.reveal');
+
+    if (reduced || !('IntersectionObserver' in window)) {
+      targets.forEach(function (el) { el.classList.add('seen'); });
+      document.querySelectorAll('.spine').forEach(function (el) { el.classList.add('seen'); });
+      return;
+    }
+
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('seen');
+        observer.unobserve(entry.target);
+      });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.12 });
+
+    targets.forEach(function (el) { observer.observe(el); });
+  })();
+</script>

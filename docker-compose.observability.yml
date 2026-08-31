@@ -1,0 +1,84 @@
+# Prometheus + Grafana, in their own compose file.
+#
+# Separate from docker-compose.yml on purpose: the data plane (Qdrant,
+# Postgres) is needed to run FinVault at all, while monitoring is needed only
+# when someone is looking. Keeping them apart means `docker compose up -d`
+# stays fast for everyday work.
+#
+# Run both together:
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+#
+# Grafana then serves the provisioned dashboard at http://localhost:3300.
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: finvault-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      # Required for Grafana's "Explore" to work against recording rules and
+      # for the dashboard's rate() queries over short ranges.
+      - --web.enable-lifecycle
+    ports:
+      # Non-default host port, for the same reason as Qdrant and Postgres in
+      # docker-compose.yml: this host may already run another project's
+      # Prometheus on 9090.
+      - "9390:9090"
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    extra_hosts:
+      # Lets the scrape config reach an app running on the host with uvicorn,
+      # which is the usual development shape. Native on Docker Desktop;
+      # this line is what makes it work on Linux too.
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.5.1
+    container_name: finvault-grafana
+    depends_on: [prometheus]
+    ports:
+      - "3300:3000"
+    environment:
+      # Anonymous viewer access: this is a local development stack with no
+      # data worth protecting behind a login prompt that everyone would then
+      # share one password for. Do NOT carry these two lines to a deployment
+      # that can reach production metrics.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: dark
+      GF_FEATURE_TOGGLES_ENABLE: publicDashboards
+    volumes:
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: finvault-redis
+    command: >-
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+    # allkeys-lru and no persistence, deliberately: everything FinVault keeps
+    # here is derived and reconstructible (embeddings, answers, rate-limit
+    # counters). Evicting under pressure is correct; writing it to disk buys
+    # nothing and puts document-derived vectors on another volume.
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:

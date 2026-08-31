@@ -1,0 +1,184 @@
+<title>DL — FinVault Workflow</title>
+<meta name="description" content="Local deep-learning encoders: embedding and cross-encoder reranking.">
+<style>
+  :root {
+    --bg: #0e1015; --surface: #1a1e26; --surface-2: #20242e; --border: #2a2f3a;
+    --ink: #eef0f4; --ink-dim: #9aa1b0; --ink-faint: #5c6272;
+    --accent: #9d84e0; --accent-ink: #ded4fb; --accent-soft: rgba(157,132,224,.18);
+    --shadow: 0 24px 60px rgba(0,0,0,.4);
+  }
+  :root[data-theme="light"] {
+    --bg: #f3f2ee; --surface: #ffffff; --surface-2: #f7f5f0; --border: #e1ddd2;
+    --ink: #201f1c; --ink-dim: #625d51; --ink-faint: #948d7c;
+    --accent: #6c4fd1; --accent-ink: #3f2a8f; --accent-soft: rgba(108,79,209,.10);
+    --shadow: 0 24px 60px rgba(60,50,30,.10);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f3f2ee; --surface: #ffffff; --surface-2: #f7f5f0; --border: #e1ddd2;
+      --ink: #201f1c; --ink-dim: #625d51; --ink-faint: #948d7c;
+      --accent: #6c4fd1; --accent-ink: #3f2a8f; --accent-soft: rgba(108,79,209,.10);
+      --shadow: 0 24px 60px rgba(60,50,30,.10);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); min-height:100vh; overflow-x:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; -webkit-font-smoothing:antialiased; }
+  .glow { position:fixed; inset:-20%; z-index:0; pointer-events:none; opacity:.5;
+    background: radial-gradient(650px 450px at 15% 10%, var(--accent-soft), transparent 60%),
+                radial-gradient(550px 450px at 90% 85%, var(--accent-soft), transparent 60%);
+    animation: drift 24s ease-in-out infinite alternate; }
+  @keyframes drift { from{transform:translate3d(0,0,0) scale(1);} to{transform:translate3d(-2%,2%,0) scale(1.06);} }
+
+  .wrap { position:relative; z-index:1; max-width:1080px; margin:0 auto; padding:56px 24px 100px; }
+
+  @keyframes rise { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes nodeIn { from{opacity:0; transform:translateY(16px) scale(.96);} to{opacity:1; transform:none;} }
+  @keyframes dotFlowX { 0%{left:-4px; opacity:0;} 8%{opacity:1;} 90%{opacity:1;} 100%{left:calc(100% - 4px); opacity:0;} }
+  @keyframes dotFlowY { 0%{top:-4px; opacity:0;} 8%{opacity:1;} 90%{opacity:1;} 100%{top:calc(100% - 4px); opacity:0;} }
+
+  .wf-nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:64px; flex-wrap:wrap; gap:14px;
+    opacity:0; animation: rise .5s ease .02s forwards; }
+  .wf-brand { font-family:ui-monospace,'SF Mono',Consolas,monospace; font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-faint); text-decoration:none; border:1px solid var(--border); border-radius:999px; padding:6px 12px; transition:color .2s,border-color .2s; }
+  .wf-brand:hover { color:var(--ink); border-color:var(--ink-faint); }
+  .wf-tabs { display:flex; gap:2px; background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:4px; }
+  .wf-tabs a { font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.03em; text-transform:uppercase;
+    color:var(--ink-faint); text-decoration:none; padding:7px 13px; border-radius:999px; transition:background .2s,color .2s; }
+  .wf-tabs a:hover { color:var(--ink); }
+  .wf-tabs a.active { background:var(--accent-soft); color:var(--accent-ink); }
+
+  .wf-eyebrow { font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--accent); display:flex; align-items:center; gap:10px; margin-bottom:18px; opacity:0; animation: rise .6s ease .08s forwards; }
+  .wf-eyebrow::before { content:''; width:20px; height:1px; background:var(--accent); }
+  .wf-title { font-family:Georgia,'Iowan Old Style','Palatino Linotype',serif; font-size:clamp(42px,7.5vw,78px);
+    line-height:.98; letter-spacing:-.02em; margin:0 0 46px; opacity:0; animation: rise .7s ease .16s forwards; }
+
+  .lane { margin-bottom: 40px; }
+  .lane-label { display:flex; align-items:center; gap:10px; font-family:ui-monospace,monospace; font-size:11px;
+    letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:16px;
+    opacity:0; animation: rise .5s ease .2s forwards; }
+  .lane-label b { color:var(--ink-dim); font-weight:600; }
+  .lane-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  .wf-track { display:flex; align-items:center; gap:0; margin: 0 -24px; padding: 4px 24px 18px;
+    overflow-x:auto; overflow-y:hidden; scrollbar-color: var(--border) transparent; scrollbar-width:thin; }
+  .wf-track::-webkit-scrollbar { height:6px; }
+  .wf-track::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  .wf-track::-webkit-scrollbar-track { background:transparent; }
+  .node { flex:0 0 auto; width:168px; background:var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:18px 16px 16px; position:relative; box-shadow:var(--shadow); opacity:0;
+    animation: nodeIn .55s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i) * .12s + .26s);
+    transition: transform .3s, border-color .3s; }
+  .node::before { content:''; position:absolute; top:0; left:14px; right:14px; height:3px; border-radius:0 0 3px 3px;
+    background:var(--accent); opacity:.75; }
+  .node:hover { transform:translateY(-5px); border-color:var(--accent); }
+  .node-idx { font-family:ui-monospace,monospace; font-size:11px; color:var(--accent); }
+  .node-title { margin:9px 0 5px; font-size:15.5px; letter-spacing:-.005em; }
+  .node-tag { display:block; font-family:ui-monospace,monospace; font-size:10.5px; color:var(--ink-faint); line-height:1.4; }
+
+  .connector { flex:1 0 30px; min-width:22px; height:2px; position:relative; align-self:center;
+    background: linear-gradient(90deg, var(--border), var(--border) 50%, transparent 50%); background-size:8px 2px;
+    opacity:0; animation: rise .5s ease both; animation-delay: calc(var(--i) * .12s + .36s); }
+  .connector .dot { position:absolute; top:50%; left:-4px; width:8px; height:8px; margin-top:-4px; border-radius:50%;
+    background:var(--accent); box-shadow:0 0 10px 2px var(--accent-soft); animation: dotFlowX 2.6s linear infinite;
+    animation-delay: calc(var(--i) * .35s); }
+
+  .wf-foot { margin-top:16px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;
+    font-family:ui-monospace,monospace; font-size:11px; color:var(--ink-faint);
+    opacity:0; animation: rise .6s ease .5s forwards; padding-top:18px; border-top:1px solid var(--border); }
+
+  @media (max-width:760px) {
+    .wf-track { flex-direction:column; align-items:stretch; }
+    .node { width:100%; }
+    .connector { width:2px; height:30px; align-self:center;
+      background: linear-gradient(180deg, var(--border), var(--border) 50%, transparent 50%); background-size:2px 8px; }
+    .connector .dot { left:50%; top:-4px; margin-left:-4px; margin-top:0; animation-name:dotFlowY; }
+  }
+</style>
+
+<div class="glow"></div>
+<div class="wrap">
+  <nav class="wf-nav">
+    <a class="wf-brand" href="index.html">FinVault</a>
+    <div class="wf-tabs">
+      <a href="ml.html">ML</a>
+      <a class="active" href="dl.html">DL</a>
+      <a href="genai.html">GenAI</a>
+      <a href="agentic.html">Agentic</a>
+      <a href="security.html">Security</a>
+    </div>
+  </nav>
+
+  <div class="wf-eyebrow">Workflow · 02</div>
+  <h1 class="wf-title">DL</h1>
+
+  <div class="lane">
+    <div class="lane-label"><b>Encoding</b></div>
+    <div class="wf-track">
+      <div class="node" style="--i:0">
+        <span class="node-idx">01</span>
+        <h3 class="node-title">Chunk text</h3>
+        <span class="node-tag">from ingestion</span>
+      </div>
+      <div class="connector" style="--i:0"><span class="dot"></span></div>
+
+      <div class="node" style="--i:1">
+        <span class="node-idx">02</span>
+        <h3 class="node-title">Encoder</h3>
+        <span class="node-tag">sentence-transformers · bge-small</span>
+      </div>
+      <div class="connector" style="--i:1"><span class="dot"></span></div>
+
+      <div class="node" style="--i:2">
+        <span class="node-idx">03</span>
+        <h3 class="node-title">Dense vector</h3>
+        <span class="node-tag">normalized, on-device</span>
+      </div>
+      <div class="connector" style="--i:2"><span class="dot"></span></div>
+
+      <div class="node" style="--i:3">
+        <span class="node-idx">04</span>
+        <h3 class="node-title">Vector store</h3>
+        <span class="node-tag">tagged with model name</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="lane">
+    <div class="lane-label"><b>Reranking</b></div>
+    <div class="wf-track">
+      <div class="node" style="--i:0">
+        <span class="node-idx">01</span>
+        <h3 class="node-title">Query + candidates</h3>
+        <span class="node-tag">post ACL-filter</span>
+      </div>
+      <div class="connector" style="--i:0"><span class="dot"></span></div>
+
+      <div class="node" style="--i:1">
+        <span class="node-idx">02</span>
+        <h3 class="node-title">Cross-encoder</h3>
+        <span class="node-tag">joint pair scoring</span>
+      </div>
+      <div class="connector" style="--i:1"><span class="dot"></span></div>
+
+      <div class="node" style="--i:2">
+        <span class="node-idx">03</span>
+        <h3 class="node-title">Relevance scores</h3>
+        <span class="node-tag">per-query only</span>
+      </div>
+      <div class="connector" style="--i:2"><span class="dot"></span></div>
+
+      <div class="node" style="--i:3">
+        <span class="node-idx">04</span>
+        <h3 class="node-title">Reordered set</h3>
+        <span class="node-tag">no new persisted data</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="wf-foot">
+    <span>finvault · ingestion/embeddings.py · retrieval/reranker.py · cache.py</span>
+    <span>rev 2026-08-31</span>
+  </div>
+</div>

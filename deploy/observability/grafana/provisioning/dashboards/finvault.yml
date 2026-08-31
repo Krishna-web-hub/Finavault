@@ -1,0 +1,17 @@
+apiVersion: 1
+
+providers:
+  - name: finvault
+    orgId: 1
+    folder: FinVault
+    type: file
+    # The dashboard is a file in the repo, so edits made in the Grafana UI
+    # are not the source of truth. allowUiUpdates:false makes that explicit
+    # rather than letting a UI edit silently survive until the next restart
+    # wipes it.
+    disableDeletion: false
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

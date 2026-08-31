@@ -1,0 +1,44 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: finvault-qdrant
+    ports:
+      # Non-default host port: this host may already be running another
+      # project's Qdrant on 6333. Using a dedicated port (rather than
+      # sharing that instance) keeps FinVault's vector store inside its own
+      # isolation boundary — sharing infra across projects is exactly the
+      # kind of blurred boundary this product's security model exists to
+      # avoid.
+      - "6350:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: finvault-postgres
+    environment:
+      POSTGRES_USER: finvault
+      POSTGRES_PASSWORD: finvault_dev_only
+      POSTGRES_DB: finvault
+    ports:
+      # Non-default host port for the same reason as Qdrant above — 5432 may
+      # already be bound by another project's Postgres on this host.
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Creates the non-superuser role the application connects as. Runs once,
+      # when the data directory is first initialized — see the file's header
+      # for why connecting as POSTGRES_USER would silently disable Row Level
+      # Security.
+      - ./deploy/postgres:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finvault"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  qdrant_data:
+  postgres_data:
