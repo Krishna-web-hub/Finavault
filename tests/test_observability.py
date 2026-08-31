@@ -213,3 +213,26 @@ def test_a_traceback_is_attached_to_incidents_only(caplog) -> None:
     # An expected refusal says everything useful in its fields; a stack
     # trace there only trains readers to skip stack traces.
     assert by_event["denied"].exc_info is None
+
+
+def test_a_field_colliding_with_the_request_context_does_not_raise(caplog) -> None:
+    """Regression: `extra_fields` reserved only the stdlib LogRecord names,
+    so a field sharing a name with a *request context* key slipped through
+    unprefixed. The record factory stamps context keys onto the record from
+    inside `logging.makeRecord`, before stdlib's `extra` loop looks for
+    collisions — so `logging` raised "Attempt to overwrite 'org_id'" and the
+    log call became a 500.
+
+    It only ever failed under a bound context, which is why no unit test saw
+    it: this is `cache.bump_corpus_generation` logging `org_id=` on the
+    ingest path, and it took running the app to surface.
+    """
+    with bind_request_context(org_id="org-a", request_id="req-1"), caplog.at_level(logging.INFO):
+        logger.info("corpus_generation_bumped", extra=extra_fields(org_id="org-a", generation=3))
+
+    record = caplog.records[-1]
+    # The context's value keeps the unprefixed name; the caller's is kept
+    # beside it under the same `field_` prefix a stdlib collision gets.
+    assert record.org_id == "org-a"
+    assert record.field_org_id == "org-a"
+    assert record.generation == 3

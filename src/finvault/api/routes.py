@@ -415,21 +415,26 @@ async def ingest_document(
     # version was easiest to get wrong. UnsupportedDocumentError (415) from
     # the loader and PayloadTooLargeError (413) from here both propagate
     # untouched to api/error_handlers.py.
-    async with spooled_upload(file) as tmp_path, observe_duration(ingest_duration_seconds):
-        pipeline = request.app.state.ingestion_pipeline
-        # ingest_file is synchronous and can run for a long time (embedding
-        # every chunk, plus a real LLM call for entity extraction) — run it
-        # in a worker thread so it can't block this process's single event
-        # loop from servicing anything else (health checks, other requests,
-        # SSE streams already in flight) for the duration of one ingest.
-        document = await asyncio.to_thread(
-            pipeline.ingest_file,
-            tmp_path,
-            org_id=user.org_id,
-            classification=classification,
-            title=file.filename,
-            actor=user.id,
-        )
+    # Two separate statements, not one `async with A(), B()`: every manager
+    # in a single `async with` must be an async one, and observe_duration is
+    # a plain @contextmanager. Combining them raises TypeError before the
+    # body ever runs — which made this endpoint a guaranteed 500.
+    async with spooled_upload(file) as tmp_path:
+        with observe_duration(ingest_duration_seconds):
+            pipeline = request.app.state.ingestion_pipeline
+            # ingest_file is synchronous and can run for a long time (embedding
+            # every chunk, plus a real LLM call for entity extraction) — run it
+            # in a worker thread so it can't block this process's single event
+            # loop from servicing anything else (health checks, other requests,
+            # SSE streams already in flight) for the duration of one ingest.
+            document = await asyncio.to_thread(
+                pipeline.ingest_file,
+                tmp_path,
+                org_id=user.org_id,
+                classification=classification,
+                title=file.filename,
+                actor=user.id,
+            )
 
     # Retires every cached answer for this org. Without it, a user who
     # uploads a document and immediately asks about it would be served an

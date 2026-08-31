@@ -310,8 +310,19 @@ def extra_fields(**fields: Any) -> dict[str, Any]:
     dropped: passing one unprefixed makes `logging` raise
     "Attempt to overwrite %r in LogRecord", which would turn a log line
     into an exception — the last thing an error path needs.
+
+    The *current request context*'s keys are reserved the same way, and for
+    the same reason. `_install_record_factory`'s factory stamps them onto
+    the record from inside `logging.makeRecord`, which happens before
+    stdlib's own `extra` loop checks for collisions — so by the time that
+    loop sees `org_id`, the factory has already put it there and `logging`
+    raises exactly as it would for `message`. Guarding only against the
+    stdlib names left that hole open, and it opened only under a bound
+    request context: an `extra_fields(org_id=...)` call logged fine in a
+    unit test and raised on every authenticated request in the running app.
     """
-    safe = {k: v for k, v in fields.items() if k not in _STDLIB_RECORD_ATTRS and not k.startswith("_")}
+    reserved = _STDLIB_RECORD_ATTRS | set(_context())
+    safe = {k: v for k, v in fields.items() if k not in reserved and not k.startswith("_")}
     collisions = {f"field_{k}": v for k, v in fields.items() if k not in safe}
     return {**safe, **collisions}
 
