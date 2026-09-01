@@ -55,7 +55,13 @@ class QdrantStore(VectorStore):
         from qdrant_client import QdrantClient
         from qdrant_client.models import Distance, VectorParams
 
-        self._client = QdrantClient(url=url)
+        if url.startswith("http://") or url.startswith("https://"):
+            self._client = QdrantClient(url=url)
+        elif url in (":memory:", "memory"):
+            self._client = QdrantClient(location=":memory:")
+        else:
+            self._client = QdrantClient(path=url)
+
         self._collection = collection
         existing = {c.name for c in self._client.get_collections().collections}
         if collection not in existing:

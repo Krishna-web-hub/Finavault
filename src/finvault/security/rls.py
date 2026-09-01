@@ -157,6 +157,10 @@ def install_org_scoping(engine: Engine) -> None:
     if getattr(engine, "_finvault_org_scoping", False):
         return
 
+    if engine.dialect.name != "postgresql":
+        engine._finvault_org_scoping = True
+        return
+
     @event.listens_for(engine, "begin")
     def _apply_org_scope(conn) -> None:  # type: ignore[no-untyped-def]
         # set_config(..., is_local => true) is SET LOCAL with a bindable

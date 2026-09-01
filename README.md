@@ -1,3 +1,14 @@
+---
+title: FinVault - Enterprise Multi-Agent AI
+emoji: 🛡️
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+suggested_hardware: cpu-upgrade
+---
+
 # FinVault
 
 A secure, self-hostable multi-agent RAG platform for finance. Built to be usable as a solo/small-business tool and as something a bank, hedge fund, or corporate finance/compliance team could adopt — security is the product's core differentiator, not a bolt-on.
@@ -148,6 +159,42 @@ curl -X POST "localhost:8000/documents?classification=internal" \
 curl -X POST localhost:8000/query -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d '{"question": "What was Q3 revenue growth?"}'
 ```
+
+## Hugging Face Spaces Deployment (Docker)
+
+FinVault is ready to deploy directly to **Hugging Face Spaces** using the **Docker SDK**.
+
+### Option A: Automatic CLI Push
+
+Use the helper deployment script:
+
+```bash
+python scripts/deploy_hf.py --space-id <your-username>/<your-space-name> --hf-token <your-hf-write-token>
+```
+
+### Option B: Manual Git Push
+
+1. Create a new Space on [Hugging Face Spaces](https://huggingface.co/spaces) with **SDK: Docker** and **Blank** template.
+2. Clone your HF Space repository locally and push this codebase:
+   ```bash
+   git remote add space https://huggingface.co/spaces/<your-username>/<your-space-name>
+   git push space main
+   ```
+
+### Option C: Hugging Face Secrets Configuration
+
+In your Space's **Settings -> Variables and secrets**, set the following environment secrets:
+
+| Secret / Variable | Description | Example / Default |
+|---|---|---|
+| `OPENROUTER_API_KEY` | OpenRouter API Key for multi-agent LLM reasoning | `sk-or-v1-...` |
+| `HF_TOKEN` | Hugging Face Access Token (optional if using HF router) | `hf_...` |
+| `FINVAULT_MODEL` | Default LLM model slug | `minimax/minimax-m2.7:free` |
+| `FINVAULT_JWT_SECRET` | Secret key for JWT signature validation | `<generate-random-token-urlsafe>` |
+| `POSTGRES_DSN` | (Optional) Remote PostgreSQL DSN (Neon/Supabase) | `postgresql://...` (or auto-embedded SQLite) |
+| `QDRANT_URL` | (Optional) Qdrant Cloud URL | `https://...` (or auto-embedded `:memory:` / path) |
+
+---
 
 ## Error handling
 
@@ -348,12 +395,22 @@ advisory dependency audit.
 - **The rate limiter fails open; everything else fails closed** — a deliberate, documented exception. Refusing every request because a counter is unreachable would make the limiter the denial of service it exists to prevent.
 - **Data classification is the real access-control primitive** — it gates both who can retrieve a chunk and whether that chunk's content is ever allowed to reach the LLM at all.
 - **The agent loop fails closed on model unreliability, not just outright errors** — smaller/free-tier models occasionally return a genuinely empty turn (no text, no tool call) or an HTTP 200 with a malformed/empty `choices` field instead of raising. `agents/base.py` retries an empty turn with a nudge a bounded number of times, and treats a malformed response the same as any other request failure — both cases raise a typed `AgentExecutionError` (or its `UpstreamProtocolError` subclass — see `errors.py`) that `Orchestrator.handle()` (and a route-level backstop in `api/routes.py`) turn into a clean, non-crashing response rather than a raw 500.
+- **Provider promises are verified, not trusted** — `tool_choice` is the API-level guarantee that retrieval happens before an answer is composed, and several providers ignore it silently. The loop therefore treats it as a hint and runs the required tool itself when the first turn comes back as plain text, because the failure it prevents (an answer with no retrieval, hence no citations, hence nothing for citation verification to check) is a grounding failure that looks clean from the outside.
+- **A 429 is not a 5xx** — rate limits get a separate, more patient retry budget than infra failures, because one is the upstream saying "wait and this succeeds" and the other is it saying "this is broken". Sharing one budget between them meant a per-minute quota aborted whole queries mid-flight.
 
 ## Known limitations / roadmap
 
 **LLM calls go through OpenRouter, not Anthropic directly.** This was a deliberate change from the original design (see git history / project notes) to make the system runnable without a direct Anthropic API account. OpenRouter is an additional third party in the request path for the one step that was already documented as leaving the system boundary (step 4 above) — it sees whatever content reaches that step (already filtered by classification/ACL/externalization policy), and its own data-handling policy applies to that traffic. If your threat model requires calling Anthropic directly with no intermediary, swap the `OpenAI(base_url=...)` client construction in `agents/base.py` and `agents/compliance_agent.py` for the native `anthropic` SDK — the tool-loop logic is the only part that's provider-shaped; everything upstream of it (encryption, ACL, classification) is unaffected either way.
 
-**The default model is free-tier, which means daily rate limits.** `FINVAULT_MODEL` defaults to `nvidia/nemotron-3-super-120b-a12b:free` — zero OpenRouter spend, but subject to OpenRouter's free-model daily request cap (observed: 50 requests/day on a fresh account; resets daily, or raised by adding credits). Each single `/query` call fans out into several nested LLM calls (Orchestrator → Retriever's own multi-turn search loop → Analyst → Compliance semantic review), so the cap is reached faster than the request count alone suggests. A rate-limited call fails closed the same way any other LLM failure does (`agent_execution_failed`, HTTP 200, no crash) — it is not a bug, just the cost of the free tier. Swap to a paid model for production use.
+**The model you configure is part of the security boundary, not just a quality knob.** The Orchestrator uses `tool_choice` to guarantee `search_documents` runs before any answer is composed. Several providers accept that parameter and ignore it with no error — the model answers from nothing, the answer carries zero citations, and because `ComplianceAgent` only verifies citations when some exist, an ungrounded answer is reviewed as clean. `agents/base.py` closes this by running the required tool itself when the model skips it (counted by `finvault_forced_tool_synthesized_total`), so a badly-behaved model degrades *search quality* rather than grounding — but a sustained non-zero counter means you should change models. `FINVAULT_MODEL` defaults to `minimax/minimax-m2.7:free`, a free model verified against real requests to honor forcing; `.env.example` carries the full probe table, including which slugs are paid and which reject `tool_choice` outright. Verify any replacement the same way — OpenRouter's advertised `supported_parameters` claims support for models whose upstream provider does not implement it.
+
+**Pin the route explicitly.** `FINVAULT_LLM_ROUTE` (`openrouter` | `moonshot` | `auto`) states which upstream to use. `auto` infers it from whichever API key is non-empty, which means adding a second provider's key silently redirects every LLM call — and since each route names models differently (`moonshotai/kimi-k2.5` vs bare `kimi-k3`), `FINVAULT_MODEL` then no longer matches the route it reaches, failing at request time instead of startup.
+
+**Free tiers mean rate limits, and one query is not one request.** A single `/query` fans out into several nested LLM calls (Orchestrator → Retriever's own multi-turn search loop → Analyst → Compliance semantic review), so a per-minute cap is hit mid-question rather than between questions — a 3 RPM allowance cannot serve a query that makes 5–8 sequential calls. A 429 therefore gets its own, far more patient retry budget than a connection error or a 5xx (5 attempts, 4s→30s capped backoff, tracked separately so one does not consume the other's allowance): a rate limit is the upstream saying the same request *will* succeed after a wait, so giving up early is the only wrong move. Exhausting that budget still fails closed like any other LLM failure (`agent_execution_failed`, HTTP 200, no crash). Daily caps (observed: 50 requests/day on a fresh OpenRouter account) are not retryable — raise them with credits, or swap to a paid model for production use.
+
+**Set `FINVAULT_LLM_TIMEOUT_SECONDS` to match your model.** Defaults to 180s. Reasoning models that think before answering routinely exceed a 60s per-request timeout, which turns a slow-but-working model into a stream of timeouts; this is a property of the model you chose, not of FinVault.
+
+**Reasoning ("thinking") models need three ceilings raised, not one.** They are otherwise a poor fit for a fail-closed pipeline, because every ceiling they exceed converts into a *security-shaped* symptom rather than a timeout. Verified end-to-end on `kimi-k3` (Moonshot direct, 2026-09-01): set `FINVAULT_MAX_TOKENS_PER_REQUEST=80000` (one question spent ~48k against the 40000 default and died mid-chain), keep `FINVAULT_COMPLIANCE_REVIEW_MAX_TOKENS` at its 2048 default (the old hardcoded 200 let the reviewer think past its budget and return empty — failing closed, so a correct, fully-cited answer was blocked for "manual review"), and raise `FINVAULT_LLM_TIMEOUT_SECONDS`. Note also that Moonshot's thinking-enabled models (`kimi-k2.6`, `kimi-k2.7-code*`) reject `tool_choice` outright with a 400, so they cannot be used at all — `kimi-k3` is the only usable Kimi slug.
 
 Explicitly out of scope for this pass:
 

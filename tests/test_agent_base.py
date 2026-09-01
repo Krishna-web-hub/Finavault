@@ -3,7 +3,13 @@ from __future__ import annotations
 import pytest
 
 from finvault.agents.base import Agent, AgentExecutionError, TokenBudget, TokenBudgetExceeded, ToolDefinition
-from tests.fakes import FakeOpenAIClient, FakeResponse, make_bad_request_error, make_rate_limit_error
+from tests.fakes import (
+    FakeOpenAIClient,
+    FakeResponse,
+    make_bad_request_error,
+    make_connection_error,
+    make_rate_limit_error,
+)
 
 
 def _make_search_tool(handler=None):
@@ -102,11 +108,42 @@ def test_transient_error_retries_and_succeeds() -> None:
 
 
 def test_transient_error_exhausts_retries_and_fails_closed() -> None:
-    client = FakeOpenAIClient([make_rate_limit_error(), make_rate_limit_error(), make_rate_limit_error()])
+    # _MAX_RATE_LIMIT_RETRIES + 1 failures: a 429 gets its own, more patient
+    # budget than a connection error (see base.py) because it means "wait and
+    # this will succeed", not "this is broken".
+    client = FakeOpenAIClient([make_rate_limit_error() for _ in range(Agent._MAX_RATE_LIMIT_RETRIES + 1)])
     agent = Agent(name="test", system_prompt="You are a test agent.", client=client, sleep=lambda _: None)
 
     with pytest.raises(AgentExecutionError):
         agent.run("Anything")
+
+
+def test_rate_limits_do_not_consume_the_connection_error_budget() -> None:
+    """The two budgets are independent: a query that hits a per-minute quota
+    several times must not arrive at its next genuine infra failure with its
+    retries already spent."""
+    calls = [make_rate_limit_error() for _ in range(Agent._MAX_RATE_LIMIT_RETRIES)]
+    calls += [make_connection_error() for _ in range(Agent._MAX_TRANSIENT_RETRIES)]
+    calls.append(FakeResponse.text("recovered"))
+    client = FakeOpenAIClient(calls)
+    agent = Agent(name="test", system_prompt="You are a test agent.", client=client, sleep=lambda _: None)
+
+    assert agent.run("Anything") == "recovered"
+    assert len(client.chat.completions.calls) == len(calls)
+
+
+def test_rate_limit_backoff_is_patient_enough_for_a_per_minute_quota() -> None:
+    """A 0.5s/1.0s backoff cannot outlast a 3-RPM window. Delays must reach
+    the tens of seconds, and stay capped so a request can't stall forever."""
+    slept: list[float] = []
+    client = FakeOpenAIClient(
+        [make_rate_limit_error() for _ in range(Agent._MAX_RATE_LIMIT_RETRIES)] + [FakeResponse.text("recovered")]
+    )
+    agent = Agent(name="test", system_prompt="You are a test agent.", client=client, sleep=slept.append)
+
+    assert agent.run("Anything") == "recovered"
+    assert max(slept) >= 20.0
+    assert max(slept) <= Agent._MAX_RETRY_DELAY_SECONDS
 
 
 def test_non_retryable_error_fails_immediately_without_retrying() -> None:
@@ -187,8 +224,10 @@ def test_agent_recovers_from_a_single_empty_response_via_nudge_retry() -> None:
 # enough to make a free-tier model actually call a tool — see
 # orchestrator.py's real motivation for this (observed live: the model
 # skipped search_documents and answered directly whenever a question's
-# phrasing mentioned a file format or a specific row). tool_choice forcing
-# the API call itself is deterministic where the prompt wasn't.
+# phrasing mentioned a file format or a specific row). tool_choice on the
+# API call is a stronger hint than the prompt — but only a hint: several
+# providers ignore it silently (see base.py), so the actual guarantee is
+# the synthesized-call fallback covered at the bottom of this section.
 
 
 def test_require_tool_on_first_turn_forces_tool_choice_on_the_first_request() -> None:
@@ -210,7 +249,9 @@ def test_require_tool_on_first_turn_forces_tool_choice_on_the_first_request() ->
 
     assert result == "Here is the answer, grounded in what search_documents found."
     first_call = client.chat.completions.calls[0]
-    assert first_call["tool_choice"] == {"type": "function", "function": {"name": "search_documents"}}
+    # "required", not {"type": "function", ...}: the explicit-function form
+    # is ignored outright by several providers this deploys against.
+    assert first_call["tool_choice"] == "required"
 
 
 def test_require_tool_on_first_turn_does_not_force_tool_choice_on_later_turns() -> None:
@@ -231,10 +272,7 @@ def test_require_tool_on_first_turn_does_not_force_tool_choice_on_later_turns() 
 
     agent.run("Some ambiguous question")
 
-    assert client.chat.completions.calls[0]["tool_choice"] == {
-        "type": "function",
-        "function": {"name": "search_documents"},
-    }
+    assert client.chat.completions.calls[0]["tool_choice"] == "required"
     # Second and third calls (the model's own free choice each time) must
     # not have a forced tool_choice — only the very first call does.
     assert "tool_choice" not in client.chat.completions.calls[1]
@@ -250,3 +288,121 @@ def test_agent_without_require_tool_on_first_turn_never_sends_tool_choice() -> N
     agent.run("Anything")
 
     assert "tool_choice" not in client.chat.completions.calls[0]
+
+
+# --- The guarantee itself. tool_choice is advisory in practice: measured
+# live, qwen-2.5-72b ignores every form of it and kimi-k2.5 ignores the
+# explicit-function form, both answering in plain text with finish_reason
+# "stop" and no error. When that happens the agent must run the required
+# tool itself, because the alternative is an answer composed from no
+# retrieval at all — which reaches the user with zero citations, and so
+# skips ComplianceAgent's citation verification entirely.
+
+
+def test_forced_tool_runs_anyway_when_the_model_ignores_tool_choice() -> None:
+    calls: list[dict] = []
+
+    def handler(input_: dict) -> str:
+        calls.append(input_)
+        return "Passage: Q1 revenue was $158.4M."
+
+    client = FakeOpenAIClient(
+        [
+            # The provider ignores tool_choice and asks for clarification.
+            FakeResponse.text("Could you please specify which document you mean?"),
+            FakeResponse.text("Q1 revenue was $158.4M."),
+        ]
+    )
+    agent = Agent(
+        name="test",
+        system_prompt="You are a test agent.",
+        client=client,
+        tools=[
+            ToolDefinition(
+                name="search_documents",
+                description="Search the corpus.",
+                input_schema={
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                    "required": ["query"],
+                },
+                handler=handler,
+            )
+        ],
+        require_tool_on_first_turn="search_documents",
+    )
+
+    result = agent.run("okay read the document and give the output")
+
+    # The clarifying question must NOT be what the user gets back.
+    assert result == "Q1 revenue was $158.4M."
+    # The tool ran regardless, seeded with the raw user message.
+    assert calls == [{"query": "okay read the document and give the output"}]
+    # Its output was fed back into the conversation for the next turn.
+    assert "Q1 revenue was $158.4M." in client.chat.completions.calls[1]["messages"][-1]["content"]
+
+
+def test_forced_tool_fallback_only_applies_to_the_first_turn() -> None:
+    """A plain-text answer on a LATER turn is a legitimate final answer, not
+    a refusal to search — the fallback must not fire and loop forever."""
+    calls: list[dict] = []
+
+    def handler(input_: dict) -> str:
+        calls.append(input_)
+        return "Passage: some context."
+
+    client = FakeOpenAIClient(
+        [
+            FakeResponse.tool_call("search_documents", {"query": "revenue"}),
+            FakeResponse.text("Final answer."),
+        ]
+    )
+    agent = Agent(
+        name="test",
+        system_prompt="You are a test agent.",
+        client=client,
+        tools=[
+            ToolDefinition(
+                name="search_documents",
+                description="Search the corpus.",
+                input_schema={
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                    "required": ["query"],
+                },
+                handler=handler,
+            )
+        ],
+        require_tool_on_first_turn="search_documents",
+    )
+
+    assert agent.run("What was revenue?") == "Final answer."
+    # Called once by the model, never re-run by the fallback.
+    assert calls == [{"query": "revenue"}]
+
+
+def test_sdk_internal_retries_are_disabled_so_one_policy_owns_retrying() -> None:
+    """Regression test for a self-inflicted failure observed live. The OpenAI
+    SDK retries twice by default, ~1s apart, with no idea why a call failed.
+    Left on, each attempt made by complete_with_retries is really three HTTP
+    requests: it burns a per-minute quota 3x faster than intended, collides
+    with itself on an org capped at concurrent requests (Moonshot returned
+    "max organization concurrency: 1" 429s that our own retries caused), and
+    hides two of every three requests from llm_requests_total.
+
+    The retry policy here is 429-aware; the SDK's is not. Only one of them
+    should be retrying.
+    """
+    from finvault.agents.base import _client
+
+    assert _client().max_retries == 0
+
+
+def test_compliance_client_also_disables_sdk_retries() -> None:
+    """The same amplification through the reviewer is worse: it is the last
+    call in the chain, so it collides with whatever is still settling."""
+    from finvault.agents.compliance_agent import ComplianceAgent
+
+    agent = ComplianceAgent()
+
+    assert agent._client.max_retries == 0

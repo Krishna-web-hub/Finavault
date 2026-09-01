@@ -17,10 +17,13 @@ Four checks, in order, any of which can block the response:
 from __future__ import annotations
 
 import re
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from openai import OpenAI
 
+from finvault.agents.base import SDK_INTERNAL_RETRIES, complete_with_retries
 from finvault.config import settings
 from finvault.metrics import compliance_verdicts_total
 from finvault.models import Classification
@@ -96,12 +99,24 @@ class ComplianceAgent:
         model: str | None = None,
         client: OpenAI | None = None,
         semantic_review: bool = True,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self._model = model or settings.finvault_model
         self._client = client or OpenAI(
-            base_url=settings.effective_base_url, api_key=settings.effective_api_key, timeout=60.0
+            base_url=settings.effective_base_url,
+            api_key=settings.effective_api_key,
+            # Same configured timeout as every other LLM call. Hardcoding 60
+            # here meant a reasoning model that comfortably answered the
+            # question then timed out being reviewed — blocking its own
+            # correct answer.
+            timeout=settings.finvault_llm_timeout_seconds,
+            # As in base.py: the shared retry policy is the only one that
+            # should be retrying, so the SDK's blind 1s retries are off.
+            max_retries=SDK_INTERNAL_RETRIES,
         )
         self._semantic_review = semantic_review
+        # Injectable so tests can exercise the retry path without sleeping.
+        self._sleep = sleep
         # Set by _llm_semantic_review on a fail-closed path, read by
         # review_output to label the verdict metric. Initialized here so the
         # attribute always exists, including when semantic review is off.
@@ -178,9 +193,19 @@ class ComplianceAgent:
         # caller can label the metric with the real cause.
         self._last_review_failure = None
         try:
-            response = self._client.chat.completions.create(
+            # Through the shared policy, not a bare .create(): this call
+            # runs last in a 5-8 call chain, so it meets a per-minute cap
+            # more often than any other, and an unretried 429 here blocks a
+            # correct answer as if the CONTENT were the problem. Exhausting
+            # the budget still raises, and the fail-closed handler below
+            # still blocks — retries change how often that is reached, not
+            # what happens when it is.
+            response = complete_with_retries(
+                client=self._client,
+                sleep=self._sleep,
+                agent="compliance",
                 model=self._model,
-                max_tokens=200,
+                max_tokens=settings.finvault_compliance_review_max_tokens,
                 messages=[{"role": "user", "content": SEMANTIC_REVIEW_PROMPT.format(question=question, answer=answer)}],
             )
         except Exception as exc:  # noqa: BLE001 — an unreachable reviewer is a fail-closed condition, not an approval

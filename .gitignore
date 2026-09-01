@@ -8,3 +8,8 @@ __pycache__/
 .coverage
 htmlcov/
 .ruff_cache/
+
+# Backup env files — these hold live keys, never commit them.
+.env.bak-*
+.streamlit/secrets.toml
+*.db

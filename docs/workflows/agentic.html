@@ -148,6 +148,7 @@
       <h3 class="node-title">Orchestrator</h3>
       <span class="node-tag">tool-use loop · DAG-traced</span>
       <div class="node-rows">
+        <div class="node-row"><b>first turn is forced</b> → search_documents, synthesized if the provider ignores tool_choice</div>
         <div class="node-row"><b>search_documents</b> → Retriever Agent</div>
         <div class="node-row"><b>analyze</b> → Analyst Agent</div>
         <div class="node-row"><b>session history</b> → compliance-approved turns only</div>
@@ -194,10 +195,11 @@
     <div class="ghost"><b>Knowledge Graph</b> — graph_data on /query, full org graph on GET /graph</div>
     <div class="ghost"><b>Error handling</b> — one hierarchy in errors.py; block_reason is the exception's own code</div>
     <div class="ghost"><b>Instrumentation</b> — per-agent latency and token spend on every run (metrics.py)</div>
+    <div class="ghost"><b>Retry budgets</b> — 429 and 5xx retried separately; a rate limit is a wait, not a fault. One shared policy, compliance included — its 429 blocks an answer (base.py)</div>
   </div>
 
   <div class="wf-foot">
-    <span>finvault · agents/orchestrator.py · agents/compliance_agent.py · agents/session.py · agents/execution_events.py · agents/canvas_models.py · errors.py · observability.py</span>
-    <span>rev 2026-08-31</span>
+    <span>finvault · agents/orchestrator.py · agents/compliance_agent.py · agents/session.py · agents/execution_events.py · agents/base.py · agents/canvas_models.py · errors.py · observability.py</span>
+    <span>rev 2026-09-01</span>
   </div>
 </div>

@@ -1,0 +1,35 @@
+Acme Capital Partners — Suspicious Activity Report (Draft)
+
+Classification: Restricted — Compliance Officer and Executive Committee only.
+Do not distribute. Tipping-off prohibited under applicable AML regulation.
+
+Reference: SAR-2026-0087
+Related internal review: Client Account #48213
+Prepared by: Priya Raghunathan, Chief Compliance Officer
+Draft date: 2026-06-28
+
+Subject Account
+Client Account #48213 is a Family Office relationship domiciled in Panama,
+opened 2017-01-14, holding approximately $61.4 million under a Liquid
+Alternatives mandate. The account carries a High internal risk rating and a
+politically exposed person (PEP) flag.
+
+Activity Under Review
+Between 2026-06-02 and 2026-06-14, the account originated three outbound
+wire transfers totalling $2.4 million, each routed through intermediary
+institutions in a jurisdiction appearing on the firm's high-risk list. The
+transfers were inconsistent with the stated investment mandate, which
+contemplates no third-party disbursements.
+
+Basis for Suspicion
+1. Structuring pattern — each transfer fell below the $1 million internal
+   secondary-review threshold.
+2. Counterparty opacity — two beneficiaries could not be verified against
+   the beneficial ownership disclosure on file.
+3. Timing — transfers began four days after a routine periodic review closed.
+
+Recommended Action
+File within the statutory 30-day window. Outside counsel has been engaged.
+Account activity restrictions have been applied pending resolution. No
+communication regarding this review may be made to the client or to any
+person outside the Compliance function and Executive Committee.

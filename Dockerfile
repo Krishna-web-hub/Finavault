@@ -37,34 +37,34 @@ ENV PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
     # Where sentence-transformers caches model weights. Pointed at a writable
     # path under the app user's home rather than the default root-owned
-    # location, which a non-root container cannot write to — the model
-    # download would otherwise fail at first request rather than at startup.
-    HF_HOME=/home/finvault/.cache/huggingface
+    # location, which a non-root container cannot write to.
+    HF_HOME=/home/finvault/.cache/huggingface \
+    PORT=7860
 
 # libpq5 is psycopg2's runtime dependency — the client library, not the
 # compiler toolchain that built against it.
+# Non-root user with UID 1000 (Hugging Face Spaces default non-root UID)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libpq5 curl \
  && rm -rf /var/lib/apt/lists/* \
- && useradd --create-home --uid 10001 finvault
+ && useradd --create-home --uid 1000 finvault
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=finvault:finvault frontend/ /app/frontend/
 COPY --chown=finvault:finvault src/ /app/src/
 
 WORKDIR /app
+RUN mkdir -p /app/.secrets /app/data /home/finvault/.cache \
+ && chown -R finvault:finvault /app /home/finvault
+
 USER finvault
 
-EXPOSE 8000
+EXPOSE 7860
 
-# A liveness probe the orchestrator can use before it has an ingress. The
-# endpoint reports cache degradation without failing (see routes.health) —
-# an unreachable Redis must not make Kubernetes restart a working pod.
+# A liveness probe the orchestrator can use before it has an ingress.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=90s --retries=3 \
-    CMD curl -fsS http://localhost:8000/health || exit 1
+    CMD curl -fsS http://localhost:7860/health || exit 1
 
-# --workers 1 deliberately: each worker loads its own copy of the embedding
-# model, so vertical scaling by workers multiplies memory rather than
-# throughput. Scale with replicas (see the Helm chart's HPA), where each pod
-# gets its own memory limit and the cache is shared through Redis.
-CMD ["uvicorn", "finvault.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# Start Uvicorn on port 7860 (Hugging Face Spaces standard) or dynamically via $PORT
+CMD ["sh", "-c", "uvicorn finvault.api.main:app --host 0.0.0.0 --port ${PORT:-7860} --workers 1"]
+

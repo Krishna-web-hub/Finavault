@@ -1,0 +1,45 @@
+Acme Capital Partners — Incident Post-Mortem
+
+Classification: Confidential — Technology, Risk, and Compliance personnel.
+
+Incident: INC-2026-0412 — Delayed transaction monitoring alerts
+Severity: SEV-2
+Date of incident: 2026-04-12
+Author: Samuel Whitfield, Head of Risk Technology
+
+Summary
+Between 03:20 and 14:55 UTC on 2026-04-12, the automated transaction
+monitoring pipeline processed alerts with a delay averaging 6.5 hours
+against a 24-hour escalation commitment. No alert was missed, and no
+regulatory deadline was breached, but 31 alerts were escalated to the
+Compliance team later than the internal 4-hour target.
+
+Root Cause
+A schema migration deployed on 2026-04-11 added a column to the alerts table
+without a corresponding index. The nightly batch job that scores alerts by
+risk performs a lookup against that column for every row; without the index
+the query degraded from an index scan to a sequential scan, and batch
+runtime grew from 18 minutes to just over 6 hours.
+
+Contributing Factors
+- The migration was reviewed for correctness but not for query plan impact.
+- Batch runtime had no alerting threshold; the regression was discovered
+  when a Compliance analyst asked why the morning queue was empty.
+- The staging dataset is roughly 2% of production volume, so the sequential
+  scan completed in seconds there and the regression was invisible.
+
+Remediation
+1. Index added on the new column; batch runtime returned to 19 minutes.
+   (Completed 2026-04-12)
+2. Batch runtime alert at 45 minutes, paging Risk Technology on breach.
+   (Completed 2026-04-19)
+3. Migration review checklist now requires an EXPLAIN plan for any query
+   touching a modified table. (Completed 2026-05-03)
+4. Staging dataset volume increased to 25% of production. (Target 2026-Q4,
+   owner: Platform Engineering)
+
+Regulatory Assessment
+Compliance reviewed all 31 delayed alerts. None resulted in a Suspicious
+Activity Report filing deadline being missed. Outside counsel advised that
+no regulator notification was required. The incident is recorded in the
+operational risk register as ORR-2026-118.

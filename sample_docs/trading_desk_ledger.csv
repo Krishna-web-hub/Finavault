@@ -1,0 +1,181 @@
+trade_id,trade_date,desk,instrument_type,side,notional_usd,counterparty,settlement_status,pnl_usd,limit_breach_flag
+TRD-2026-100134,2026-04-01,Rates,Interest Rate Swap,Sell,1584775.68,Meridian Clearing,Settled,5548.25,N
+TRD-2026-100004,2026-04-03,Rates,Government Bond,Buy,160241.58,Meridian Clearing,Settled,1423.59,N
+TRD-2026-100089,2026-04-03,Cash Equities,Common Stock,Sell,3095778.21,Meridian Clearing,Pending,-2647.57,N
+TRD-2026-100149,2026-04-03,Rates,Interest Rate Swap,Buy,1373228.58,Lomond Trust,Pending,11377.31,N
+TRD-2026-100160,2026-04-03,Equity Derivatives,Total Return Swap,Sell,5913765.75,Meridian Clearing,Pending,90793.67,N
+TRD-2026-100065,2026-04-04,Cash Equities,ETF,Buy,1593797.07,Northbank Securities,Settled,17539.53,N
+TRD-2026-100098,2026-04-04,Rates,Government Bond,Sell,1174877.72,Lomond Trust,Settled,6284.32,N
+TRD-2026-100110,2026-04-04,Equity Derivatives,Total Return Swap,Buy,3760400.04,Halden Global Markets,Settled,54186.1,N
+TRD-2026-100156,2026-04-04,Equity Derivatives,Total Return Swap,Sell,2716301.74,Northbank Securities,Settled,23236.54,N
+TRD-2026-100137,2026-04-05,Equity Derivatives,Equity Option,Buy,12460093.4,Sagehill Bank,Pending,-141395.67,Y
+TRD-2026-100045,2026-04-06,Equity Derivatives,Equity Option,Buy,7549184.04,Sagehill Bank,Settled,-51359.61,N
+TRD-2026-100121,2026-04-06,FX,FX Spot,Buy,953795.92,Lomond Trust,Settled,7876.4,N
+TRD-2026-100132,2026-04-06,Credit,Credit Default Swap,Sell,1522490.33,Meridian Clearing,Settled,-17061.53,N
+TRD-2026-100123,2026-04-07,Cash Equities,ETF,Buy,2184579.65,Sagehill Bank,Pending,2756.02,N
+TRD-2026-100127,2026-04-07,Rates,Interest Rate Swap,Buy,10044287.19,Sagehill Bank,Settled,-6227.9,N
+TRD-2026-100041,2026-04-08,FX,FX Forward,Sell,2885381.3,Halden Global Markets,Settled,11080.61,N
+TRD-2026-100100,2026-04-08,Cash Equities,Common Stock,Sell,2010211.61,Orient Pacific Capital,Settled,-23086.09,N
+TRD-2026-100101,2026-04-08,Equity Derivatives,Total Return Swap,Buy,1230969.56,Sagehill Bank,Settled,-5138.61,N
+TRD-2026-100112,2026-04-09,Equity Derivatives,Equity Option,Buy,5282978.23,Sagehill Bank,Pending,38852.89,N
+TRD-2026-100016,2026-04-10,Cash Equities,ETF,Sell,3136774.4,Halden Global Markets,Settled,-1514.49,N
+TRD-2026-100097,2026-04-11,Credit,Corporate Bond,Buy,4212304.94,Sagehill Bank,Settled,64853.41,N
+TRD-2026-100147,2026-04-11,Equity Derivatives,Equity Option,Sell,4729607.67,Northbank Securities,Pending,17463.25,N
+TRD-2026-100176,2026-04-11,FX,FX Spot,Buy,598181.52,Halden Global Markets,Settled,-7399.12,N
+TRD-2026-100047,2026-04-12,Rates,Interest Rate Swap,Sell,11058865.59,Sagehill Bank,Settled,-12745.57,N
+TRD-2026-100136,2026-04-12,Equity Derivatives,Total Return Swap,Sell,9421798.43,Sagehill Bank,Settled,2826.91,N
+TRD-2026-100083,2026-04-14,Credit,Credit Default Swap,Buy,3981236.23,Meridian Clearing,Settled,-3971.28,N
+TRD-2026-100172,2026-04-14,Cash Equities,Common Stock,Sell,4043850.78,Sagehill Bank,Settled,82208.4,N
+TRD-2026-100078,2026-04-16,Rates,Government Bond,Sell,978232.63,Sagehill Bank,Settled,10061.36,N
+TRD-2026-100087,2026-04-16,Rates,Government Bond,Sell,2597095.38,Orient Pacific Capital,Settled,-33448.38,N
+TRD-2026-100166,2026-04-16,Cash Equities,ETF,Buy,4170778.51,Meridian Clearing,Settled,-13881.05,N
+TRD-2026-100017,2026-04-17,Rates,Government Bond,Buy,2100363.96,Halden Global Markets,Settled,51803.84,N
+TRD-2026-100048,2026-04-17,FX,FX Spot,Buy,518885.95,Halden Global Markets,Settled,-1669.33,N
+TRD-2026-100021,2026-04-18,Credit,Credit Default Swap,Sell,1080992.13,Northbank Securities,Pending,11129.62,N
+TRD-2026-100126,2026-04-18,Cash Equities,ETF,Buy,4413365.99,Orient Pacific Capital,Settled,-4394.03,N
+TRD-2026-100119,2026-04-19,Equity Derivatives,Equity Option,Buy,4273298.03,Lomond Trust,Settled,-13439.75,N
+TRD-2026-100124,2026-04-19,Equity Derivatives,Total Return Swap,Buy,2344257.31,Orient Pacific Capital,Settled,18883.08,N
+TRD-2026-100125,2026-04-20,Rates,Government Bond,Buy,1924634.84,Lomond Trust,Settled,508.25,N
+TRD-2026-100012,2026-04-21,Rates,Government Bond,Sell,847253.72,Northbank Securities,Settled,569.24,N
+TRD-2026-100071,2026-04-21,Credit,Credit Default Swap,Sell,1804280.85,Northbank Securities,Settled,-3608.56,N
+TRD-2026-100076,2026-04-21,Equity Derivatives,Equity Option,Buy,474399.47,Halden Global Markets,Settled,7738.55,N
+TRD-2026-100000,2026-04-23,FX,FX Spot,Sell,381947.12,Meridian Clearing,Failed,-896.37,Y
+TRD-2026-100022,2026-04-23,FX,FX Forward,Sell,2784722.93,Northbank Securities,Settled,-42949.31,N
+TRD-2026-100082,2026-04-23,Rates,Government Bond,Sell,1111751.25,Northbank Securities,Settled,8165.76,N
+TRD-2026-100093,2026-04-23,Equity Derivatives,Total Return Swap,Buy,1631143.7,Sagehill Bank,Settled,-22919.38,N
+TRD-2026-100159,2026-04-23,Cash Equities,Common Stock,Buy,1403839.09,Orient Pacific Capital,Settled,-2360.54,N
+TRD-2026-100074,2026-04-24,Rates,Interest Rate Swap,Buy,4288776.19,Halden Global Markets,Settled,17721.41,N
+TRD-2026-100118,2026-04-24,Rates,Interest Rate Swap,Buy,8273570.0,Halden Global Markets,Settled,-81516.23,N
+TRD-2026-100131,2026-04-25,Cash Equities,ETF,Buy,799813.42,Orient Pacific Capital,Settled,-9827.73,N
+TRD-2026-100133,2026-04-25,Equity Derivatives,Total Return Swap,Sell,5689527.86,Orient Pacific Capital,Settled,57794.43,N
+TRD-2026-100141,2026-04-25,Credit,Corporate Bond,Buy,668739.16,Orient Pacific Capital,Settled,1082.22,N
+TRD-2026-100059,2026-04-26,FX,FX Forward,Buy,4487748.25,Halden Global Markets,Pending,-2179.49,N
+TRD-2026-100030,2026-04-27,Equity Derivatives,Total Return Swap,Sell,1356355.6,Halden Global Markets,Settled,-11307.15,N
+TRD-2026-100043,2026-04-27,Rates,Government Bond,Buy,1367701.58,Lomond Trust,Settled,-7856.79,N
+TRD-2026-100102,2026-04-27,FX,FX Forward,Buy,870459.1,Meridian Clearing,Failed,14300.08,N
+TRD-2026-100115,2026-04-28,FX,FX Forward,Buy,1549747.97,Meridian Clearing,Settled,-14694.23,N
+TRD-2026-100031,2026-04-29,Credit,Credit Default Swap,Sell,2381252.22,Orient Pacific Capital,Settled,-18571.39,N
+TRD-2026-100055,2026-04-29,FX,FX Forward,Sell,1413417.34,Halden Global Markets,Settled,-3525.66,N
+TRD-2026-100086,2026-04-29,Rates,Interest Rate Swap,Buy,2494377.79,Lomond Trust,Settled,-35045.32,N
+TRD-2026-100054,2026-04-30,FX,FX Spot,Sell,276831.75,Sagehill Bank,Pending,-2740.26,N
+TRD-2026-100144,2026-05-01,FX,FX Forward,Buy,5089630.09,Northbank Securities,Settled,17138.65,N
+TRD-2026-100151,2026-05-01,FX,FX Forward,Sell,2898451.03,Meridian Clearing,Settled,-18254.93,N
+TRD-2026-100103,2026-05-02,Cash Equities,ETF,Buy,3839902.3,Meridian Clearing,Settled,-34340.15,N
+TRD-2026-100032,2026-05-03,Rates,Government Bond,Buy,1321068.05,Sagehill Bank,Settled,13843.65,N
+TRD-2026-100003,2026-05-04,FX,FX Spot,Buy,917066.6,Meridian Clearing,Settled,1493.48,N
+TRD-2026-100077,2026-05-05,FX,FX Forward,Buy,1220153.78,Northbank Securities,Settled,-8845.8,N
+TRD-2026-100035,2026-05-06,FX,FX Spot,Sell,2756696.83,Meridian Clearing,Settled,-20500.02,N
+TRD-2026-100154,2026-05-06,Credit,Corporate Bond,Sell,1441421.14,Orient Pacific Capital,Settled,9710.15,N
+TRD-2026-100161,2026-05-08,Cash Equities,ETF,Sell,616937.13,Lomond Trust,Settled,-9805.58,N
+TRD-2026-100006,2026-05-09,FX,FX Spot,Sell,611089.39,Lomond Trust,Failed,-7083.94,Y
+TRD-2026-100150,2026-05-10,Credit,Credit Default Swap,Buy,3877448.25,Lomond Trust,Settled,-57675.85,N
+TRD-2026-100146,2026-05-12,Cash Equities,Common Stock,Sell,14042181.05,Meridian Clearing,Pending,132116.51,Y
+TRD-2026-100167,2026-05-12,Credit,Credit Default Swap,Buy,2965747.0,Lomond Trust,Settled,-1810.23,N
+TRD-2026-100169,2026-05-12,FX,FX Spot,Buy,1843465.2,Orient Pacific Capital,Settled,12434.28,N
+TRD-2026-100051,2026-05-13,Cash Equities,Common Stock,Buy,526429.34,Lomond Trust,Settled,1775.67,N
+TRD-2026-100171,2026-05-13,FX,FX Spot,Sell,2987247.34,Northbank Securities,Settled,1332.43,N
+TRD-2026-100019,2026-05-14,Rates,Government Bond,Sell,621571.1,Orient Pacific Capital,Settled,7233.35,N
+TRD-2026-100122,2026-05-14,Rates,Interest Rate Swap,Buy,575606.03,Orient Pacific Capital,Pending,4025.21,N
+TRD-2026-100018,2026-05-18,Credit,Credit Default Swap,Buy,3509537.44,Orient Pacific Capital,Settled,-32409.65,N
+TRD-2026-100036,2026-05-18,Rates,Interest Rate Swap,Buy,1328353.91,Lomond Trust,Settled,45211.84,N
+TRD-2026-100044,2026-05-18,Credit,Corporate Bond,Sell,8495395.06,Halden Global Markets,Settled,44050.91,N
+TRD-2026-100070,2026-05-18,FX,FX Spot,Buy,2460905.0,Meridian Clearing,Settled,-6033.23,N
+TRD-2026-100120,2026-05-18,Credit,Corporate Bond,Buy,4495602.25,Halden Global Markets,Settled,11155.21,N
+TRD-2026-100163,2026-05-19,Rates,Government Bond,Sell,10843827.94,Northbank Securities,Settled,113694.62,N
+TRD-2026-100164,2026-05-19,FX,FX Spot,Sell,1693101.61,Halden Global Markets,Settled,3484.18,N
+TRD-2026-100007,2026-05-20,Rates,Government Bond,Buy,2612903.43,Orient Pacific Capital,Settled,57969.44,N
+TRD-2026-100010,2026-05-20,Rates,Interest Rate Swap,Buy,2286088.18,Sagehill Bank,Settled,-17101.35,N
+TRD-2026-100092,2026-05-21,Credit,Corporate Bond,Sell,15319365.45,Meridian Clearing,Settled,-40365.8,N
+TRD-2026-100099,2026-05-21,FX,FX Spot,Sell,2765639.4,Lomond Trust,Settled,-25653.66,N
+TRD-2026-100130,2026-05-21,Credit,Credit Default Swap,Sell,835484.8,Northbank Securities,Settled,9853.15,N
+TRD-2026-100008,2026-05-22,Cash Equities,ETF,Sell,807023.09,Orient Pacific Capital,Settled,7047.3,N
+TRD-2026-100038,2026-05-22,FX,FX Spot,Sell,1598107.69,Sagehill Bank,Settled,20309.12,N
+TRD-2026-100060,2026-05-22,Credit,Credit Default Swap,Buy,1807902.91,Northbank Securities,Settled,-2155.83,N
+TRD-2026-100081,2026-05-22,FX,FX Spot,Buy,1047075.98,Lomond Trust,Settled,-3965.38,N
+TRD-2026-100046,2026-05-23,Equity Derivatives,Equity Option,Buy,852004.35,Orient Pacific Capital,Settled,-11599.97,N
+TRD-2026-100145,2026-05-23,Cash Equities,ETF,Buy,1007223.31,Orient Pacific Capital,Settled,-5327.37,N
+TRD-2026-100153,2026-05-23,FX,FX Forward,Buy,1384687.06,Orient Pacific Capital,Settled,11589.29,N
+TRD-2026-100034,2026-05-24,Equity Derivatives,Equity Option,Buy,4567220.1,Northbank Securities,Settled,-71926.46,N
+TRD-2026-100114,2026-05-25,Credit,Corporate Bond,Sell,4564234.69,Sagehill Bank,Pending,-76609.1,N
+TRD-2026-100001,2026-05-26,Rates,Government Bond,Sell,487339.64,Orient Pacific Capital,Pending,-3263.15,N
+TRD-2026-100080,2026-05-26,Rates,Government Bond,Sell,924742.11,Meridian Clearing,Settled,-4541.59,N
+TRD-2026-100106,2026-05-27,Equity Derivatives,Equity Option,Buy,3104696.09,Lomond Trust,Settled,6947.73,N
+TRD-2026-100152,2026-05-27,Credit,Credit Default Swap,Buy,188149.95,Orient Pacific Capital,Settled,3576.55,N
+TRD-2026-100014,2026-05-28,FX,FX Forward,Buy,1335193.93,Lomond Trust,Settled,16042.81,N
+TRD-2026-100148,2026-05-28,Credit,Credit Default Swap,Buy,1384832.5,Sagehill Bank,Settled,-2473.47,N
+TRD-2026-100042,2026-05-29,Cash Equities,Common Stock,Sell,2805853.44,Sagehill Bank,Settled,13991.31,N
+TRD-2026-100068,2026-05-29,Rates,Government Bond,Buy,1344027.33,Meridian Clearing,Settled,26773.29,N
+TRD-2026-100073,2026-05-29,Credit,Credit Default Swap,Buy,1761419.61,Meridian Clearing,Settled,23893.38,N
+TRD-2026-100165,2026-05-29,Cash Equities,ETF,Sell,1404712.99,Sagehill Bank,Settled,1572.36,N
+TRD-2026-100052,2026-05-31,Equity Derivatives,Total Return Swap,Sell,1576122.01,Sagehill Bank,Settled,2595.78,N
+TRD-2026-100091,2026-05-31,FX,FX Forward,Sell,2554179.29,Orient Pacific Capital,Settled,-28615.39,N
+TRD-2026-100028,2026-06-01,Equity Derivatives,Total Return Swap,Buy,1939857.33,Lomond Trust,Failed,10686.78,Y
+TRD-2026-100009,2026-06-02,Credit,Corporate Bond,Sell,320643.95,Meridian Clearing,Settled,-3873.83,N
+TRD-2026-100079,2026-06-02,Cash Equities,ETF,Sell,2911496.77,Meridian Clearing,Settled,1469.11,N
+TRD-2026-100026,2026-06-03,Equity Derivatives,Equity Option,Buy,6569717.66,Orient Pacific Capital,Pending,27423.24,N
+TRD-2026-100027,2026-06-03,Rates,Interest Rate Swap,Buy,15439324.49,Northbank Securities,Settled,237156.7,N
+TRD-2026-100174,2026-06-03,Cash Equities,Common Stock,Buy,838421.1,Orient Pacific Capital,Settled,-9482.76,N
+TRD-2026-100037,2026-06-05,FX,FX Forward,Buy,33655117.56,Orient Pacific Capital,Settled,146445.82,N
+TRD-2026-100058,2026-06-07,Cash Equities,ETF,Buy,5537921.62,Orient Pacific Capital,Settled,18840.1,N
+TRD-2026-100116,2026-06-07,FX,FX Forward,Buy,1784353.77,Orient Pacific Capital,Settled,9385.81,N
+TRD-2026-100050,2026-06-08,Credit,Corporate Bond,Buy,2971853.87,Meridian Clearing,Settled,-25231.41,N
+TRD-2026-100066,2026-06-08,Credit,Credit Default Swap,Sell,6716839.22,Meridian Clearing,Settled,-111578.44,N
+TRD-2026-100069,2026-06-08,Rates,Interest Rate Swap,Buy,3215103.03,Orient Pacific Capital,Settled,-4927.36,N
+TRD-2026-100111,2026-06-08,Equity Derivatives,Equity Option,Sell,979093.6,Northbank Securities,Settled,8488.65,N
+TRD-2026-100140,2026-06-08,FX,FX Forward,Buy,3637889.26,Halden Global Markets,Settled,11113.13,N
+TRD-2026-100168,2026-06-08,Rates,Interest Rate Swap,Buy,3953487.62,Orient Pacific Capital,Settled,26809.46,N
+TRD-2026-100142,2026-06-09,Cash Equities,ETF,Buy,2819715.03,Halden Global Markets,Settled,-4553.67,N
+TRD-2026-100005,2026-06-10,FX,FX Forward,Sell,11329771.24,Orient Pacific Capital,Settled,117401.15,N
+TRD-2026-100063,2026-06-10,Rates,Interest Rate Swap,Sell,1333357.86,Sagehill Bank,Settled,7653.96,N
+TRD-2026-100085,2026-06-10,Cash Equities,Common Stock,Sell,1617072.48,Northbank Securities,Settled,49677.54,N
+TRD-2026-100094,2026-06-10,FX,FX Spot,Buy,3939605.91,Meridian Clearing,Settled,48726.34,N
+TRD-2026-100155,2026-06-10,FX,FX Spot,Sell,1800034.82,Halden Global Markets,Settled,10.52,N
+TRD-2026-100013,2026-06-11,Credit,Credit Default Swap,Buy,384838.2,Sagehill Bank,Settled,3509.04,N
+TRD-2026-100053,2026-06-11,FX,FX Forward,Buy,36407118.77,Meridian Clearing,Settled,219956.84,N
+TRD-2026-100057,2026-06-11,Equity Derivatives,Equity Option,Buy,648050.7,Sagehill Bank,Settled,6597.17,N
+TRD-2026-100108,2026-06-11,Equity Derivatives,Total Return Swap,Buy,235976.13,Orient Pacific Capital,Pending,2361.04,N
+TRD-2026-100095,2026-06-12,Rates,Government Bond,Buy,1837849.3,Sagehill Bank,Settled,-7201.58,N
+TRD-2026-100029,2026-06-13,Rates,Government Bond,Sell,1849593.37,Lomond Trust,Failed,-29525.35,N
+TRD-2026-100175,2026-06-14,Credit,Corporate Bond,Buy,1006647.56,Orient Pacific Capital,Pending,8521.11,N
+TRD-2026-100064,2026-06-15,Cash Equities,ETF,Buy,1197181.84,Orient Pacific Capital,Settled,3593.0,N
+TRD-2026-100090,2026-06-15,Equity Derivatives,Total Return Swap,Buy,6359688.93,Northbank Securities,Settled,40771.06,N
+TRD-2026-100096,2026-06-15,Cash Equities,ETF,Sell,686605.59,Northbank Securities,Pending,-20701.55,N
+TRD-2026-100129,2026-06-16,Cash Equities,ETF,Sell,2466148.26,Sagehill Bank,Settled,18137.94,N
+TRD-2026-100158,2026-06-16,Credit,Corporate Bond,Sell,491247.28,Northbank Securities,Pending,1550.42,N
+TRD-2026-100056,2026-06-17,Credit,Corporate Bond,Buy,1059509.78,Sagehill Bank,Settled,-10119.86,N
+TRD-2026-100104,2026-06-17,FX,FX Spot,Sell,11324241.6,Lomond Trust,Pending,-116646.42,N
+TRD-2026-100107,2026-06-17,FX,FX Forward,Sell,1399651.9,Sagehill Bank,Settled,-9241.4,N
+TRD-2026-100015,2026-06-18,Equity Derivatives,Total Return Swap,Buy,8856442.99,Orient Pacific Capital,Settled,-131064.97,N
+TRD-2026-100025,2026-06-18,Credit,Credit Default Swap,Buy,2099524.39,Halden Global Markets,Pending,5836.31,N
+TRD-2026-100084,2026-06-18,FX,FX Forward,Buy,24509054.06,Northbank Securities,Settled,66594.52,Y
+TRD-2026-100024,2026-06-19,FX,FX Forward,Sell,1624907.02,Meridian Clearing,Settled,3934.4,N
+TRD-2026-100170,2026-06-19,Equity Derivatives,Equity Option,Sell,264571.51,Orient Pacific Capital,Settled,228.51,N
+TRD-2026-100178,2026-06-19,Cash Equities,ETF,Buy,2979554.33,Meridian Clearing,Pending,14484.42,N
+TRD-2026-100020,2026-06-20,FX,FX Forward,Sell,4813876.06,Halden Global Markets,Settled,90287.21,N
+TRD-2026-100039,2026-06-20,FX,FX Spot,Buy,6316575.62,Northbank Securities,Settled,13332.41,N
+TRD-2026-100075,2026-06-20,Credit,Corporate Bond,Sell,1156482.64,Sagehill Bank,Settled,982.37,N
+TRD-2026-100088,2026-06-22,Credit,Corporate Bond,Buy,10216298.36,Halden Global Markets,Settled,42511.16,N
+TRD-2026-100139,2026-06-22,Rates,Government Bond,Buy,2282199.96,Halden Global Markets,Settled,22453.76,N
+TRD-2026-100062,2026-06-23,Credit,Credit Default Swap,Buy,11602026.97,Sagehill Bank,Settled,-76652.79,N
+TRD-2026-100117,2026-06-23,Equity Derivatives,Equity Option,Buy,6100283.06,Sagehill Bank,Pending,-9129.9,N
+TRD-2026-100138,2026-06-23,Rates,Government Bond,Buy,1320111.29,Lomond Trust,Settled,34346.73,N
+TRD-2026-100143,2026-06-23,Credit,Corporate Bond,Buy,394079.46,Northbank Securities,Pending,3834.7,N
+TRD-2026-100173,2026-06-23,Cash Equities,Common Stock,Buy,1330765.18,Sagehill Bank,Settled,6507.0,N
+TRD-2026-100177,2026-06-23,Credit,Credit Default Swap,Buy,1699383.89,Lomond Trust,Settled,32917.96,N
+TRD-2026-100011,2026-06-24,FX,FX Spot,Buy,2532143.77,Orient Pacific Capital,Settled,-9375.51,N
+TRD-2026-100105,2026-06-24,Rates,Interest Rate Swap,Sell,1396253.78,Halden Global Markets,Settled,1711.72,N
+TRD-2026-100135,2026-06-24,Credit,Corporate Bond,Buy,1256778.81,Meridian Clearing,Settled,-5518.88,N
+TRD-2026-100067,2026-06-25,Credit,Corporate Bond,Buy,1382479.12,Northbank Securities,Settled,-12256.08,N
+TRD-2026-100179,2026-06-25,Equity Derivatives,Total Return Swap,Buy,5065410.69,Lomond Trust,Settled,-45771.8,N
+TRD-2026-100162,2026-06-26,Cash Equities,Common Stock,Sell,1466611.65,Meridian Clearing,Settled,6470.65,N
+TRD-2026-100061,2026-06-27,Credit,Credit Default Swap,Sell,2534544.71,Meridian Clearing,Settled,10135.3,N
+TRD-2026-100109,2026-06-27,Equity Derivatives,Equity Option,Buy,5773026.59,Meridian Clearing,Pending,-47736.08,N
+TRD-2026-100128,2026-06-27,Credit,Credit Default Swap,Buy,2268647.57,Halden Global Markets,Settled,18519.1,N
+TRD-2026-100033,2026-06-28,Credit,Corporate Bond,Buy,776163.31,Orient Pacific Capital,Settled,7283.5,N
+TRD-2026-100040,2026-06-28,Credit,Corporate Bond,Buy,704936.47,Halden Global Markets,Settled,16581.85,N
+TRD-2026-100002,2026-06-29,Credit,Corporate Bond,Buy,6798868.13,Orient Pacific Capital,Settled,21338.75,N
+TRD-2026-100049,2026-06-30,Credit,Credit Default Swap,Sell,6601680.28,Halden Global Markets,Settled,9302.51,N
+TRD-2026-100072,2026-06-30,FX,FX Spot,Buy,1409268.66,Meridian Clearing,Settled,-7614.81,N
+TRD-2026-100113,2026-06-30,Equity Derivatives,Total Return Swap,Sell,685864.48,Meridian Clearing,Settled,359.33,N
+TRD-2026-100023,2026-07-01,Rates,Government Bond,Sell,28676691.51,Sagehill Bank,Failed,-20841.87,Y
+TRD-2026-100157,2026-07-01,Credit,Corporate Bond,Buy,4535008.61,Halden Global Markets,Settled,19162.87,N

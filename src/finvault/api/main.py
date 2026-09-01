@@ -186,9 +186,16 @@ def create_app() -> FastAPI:
     # above (which live at the root path). html=True serves index.html for
     # the mount root and falls back to it for unmatched sub-paths.
     if FRONTEND_DIR.is_dir():
+        from fastapi.responses import RedirectResponse
+
+        @app.get("/", include_in_schema=False)
+        def index_redirect():
+            return RedirectResponse(url="/app")
+
         app.mount("/app", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 
     return app
 
 
 app = create_app()
+

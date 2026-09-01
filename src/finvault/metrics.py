@@ -148,6 +148,14 @@ token_budget_exhausted_total = Counter(
     ["agent"],
 )
 
+forced_tool_synthesized_total = Counter(
+    "finvault_forced_tool_synthesized_total",
+    "First-turn tool calls FinVault had to run itself because the model ignored tool_choice. "
+    "Sustained non-zero means the configured model does not honor tool forcing — answers are "
+    "still grounded, but on a blunter query than the model would have written.",
+    ["agent", "tool"],
+)
+
 cache_operations_total = Counter(
     "finvault_cache_operations_total",
     "Cache lookups by result. hit/miss give you the hit rate; `unavailable` separates a cold cache from a broken one.",

@@ -1,0 +1,160 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 2800 >>
+stream
+BT
+/F2 16 Tf
+1 0 0 1 62 742 Tm
+18 TL
+/F2 14 Tf
+(Acme Capital Partners - Board Risk Committee Minutes) Tj
+/F1 11 Tf
+T*
+/F1 11 Tf
+T*
+(Classification: Internal. Prepared for distribution to Board members,) Tj
+/F1 11 Tf
+T*
+(Executive Committee, and Internal Audit.) Tj
+/F1 11 Tf
+T*
+/F1 11 Tf
+T*
+(Meeting date: 2026-06-24) Tj
+/F1 11 Tf
+T*
+(Location: Boston head office and video conference) Tj
+/F1 11 Tf
+T*
+(Chair: Helena Vosburgh, Independent Director) Tj
+/F1 11 Tf
+T*
+(Present: Marianne Alvarez \(CEO\), David Okonkwo \(CFO\),) Tj
+/F1 11 Tf
+T*
+(Priya Raghunathan \(CCO\), Samuel Whitfield \(Head of Risk Technology\)) Tj
+/F1 11 Tf
+T*
+/F2 11 Tf
+T*
+(1. Q2 FY2026 Financial Review) Tj
+/F1 11 Tf
+T*
+(The CFO presented Q2 FY2026 results: total revenue of $171.2 million and) Tj
+/F1 11 Tf
+T*
+(net income of $39.1 million. The Committee noted the one-time $3.8 million) Tj
+/F1 11 Tf
+T*
+(London office consolidation charge and asked that it be disclosed) Tj
+/F1 11 Tf
+T*
+(separately in the Q3 management reporting pack.) Tj
+/F1 11 Tf
+T*
+/F2 11 Tf
+T*
+(2. Incident INC-2026-0412) Tj
+/F1 11 Tf
+T*
+(The Head of Risk Technology reported on the 2026-04-12 delay in automated) Tj
+/F1 11 Tf
+T*
+(transaction monitoring alerts. Alerts were delayed by an average of 6.5) Tj
+/F1 11 Tf
+T*
+(hours; 31 alerts reached Compliance later than the internal 4-hour target.) Tj
+/F1 11 Tf
+T*
+(No regulatory deadline was breached. The Committee accepted the root cause) Tj
+/F1 11 Tf
+T*
+(finding - a schema migration deployed without a supporting index - and) Tj
+/F1 11 Tf
+T*
+(directed that a pre-deployment migration review gate be added.) Tj
+/F1 11 Tf
+T*
+(Owner: Head of Risk Technology. Due 2026-08-31.) Tj
+/F1 11 Tf
+T*
+/F2 11 Tf
+T*
+(3. Compliance Operations Capacity) Tj
+/F1 11 Tf
+T*
+(The Committee revisited the Q1 FY2026 risk note that alert volume grew 34%) Tj
+/F1 11 Tf
+T*
+(year over year against unchanged Compliance operations headcount. The CCO) Tj
+/F1 11 Tf
+T*
+(requested four additional analysts. The Committee approved two positions) Tj
+/F1 11 Tf
+T*
+(effective Q3 and deferred the remaining two pending an automation review.) Tj
+/F1 11 Tf
+T*
+/F2 11 Tf
+T*
+(4. Vendor Concentration) Tj
+/F1 11 Tf
+T*
+(The Committee reviewed assessment VRA-2026-0031 covering Northwind Data) Tj
+/F1 11 Tf
+T*
+(Services. It noted the vendor's 8-hour recovery objective against Acme's) Tj
+/F1 11 Tf
+T*
+(4-hour tolerance for monitoring-critical feeds, and asked management to) Tj
+/F1 11 Tf
+T*
+(report on a failover data source at the September meeting.) Tj
+/F1 11 Tf
+T*
+/F2 11 Tf
+T*
+(5. Escalations) Tj
+/F1 11 Tf
+T*
+(The CCO advised the Committee of one open restricted matter reviewed under) Tj
+/F1 11 Tf
+T*
+(privilege. No detail was minuted. The matter remains with outside counsel.) Tj
+/F1 11 Tf
+T*
+/F1 11 Tf
+T*
+(Next meeting: 2026-09-23) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000003103 00000 n 
+0000003173 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+3248
+%%EOF

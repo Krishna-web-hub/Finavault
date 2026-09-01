@@ -35,6 +35,7 @@ from finvault.errors import AgentExecutionError, TokenBudgetExceeded, UpstreamPr
 from finvault.metrics import (
     agent_duration_seconds,
     agent_runs_total,
+    forced_tool_synthesized_total,
     llm_requests_total,
     llm_retries_total,
     observe_duration,
@@ -86,8 +87,139 @@ class TokenBudget:
 _RETRYABLE_EXCEPTIONS = (RateLimitError, APIConnectionError, InternalServerError)
 
 
+# The SDK ships max_retries=2 and retries roughly 1s apart, blind to WHY the
+# call failed. Left on, every deliberate attempt made by complete_with_retries
+# is really three rapid-fire HTTP requests, which:
+#   - burns a per-minute quota 3x faster than the policy below intends,
+#   - collides with itself on an org capped at concurrent requests (observed
+#     on Moonshot: "max organization concurrency: 1" 429s that our own
+#     retries were generating), and
+#   - undercounts real upstream traffic in llm_requests_total, because two
+#     of every three requests are invisible to this code.
+# One retry policy, in one place, that can tell a 429 from a 5xx.
+SDK_INTERNAL_RETRIES = 0
+
+
 def _client() -> OpenAI:
-    return OpenAI(base_url=settings.effective_base_url, api_key=settings.effective_api_key, timeout=60.0)
+    return OpenAI(
+        base_url=settings.effective_base_url,
+        api_key=settings.effective_api_key,
+        timeout=settings.finvault_llm_timeout_seconds,
+        max_retries=SDK_INTERNAL_RETRIES,
+    )
+
+
+# --- Retry policy, shared by every LLM call in the system -------------------
+#
+# At module level rather than on Agent, because ComplianceAgent makes its own
+# single-shot review call without going through the tool loop. While this
+# policy lived only inside Agent, that call was the one LLM request in the
+# system with no retry at all — and it is the request that can least afford
+# it: compliance runs LAST in a 5-8 call chain, so it is the most likely to
+# meet a per-minute cap, and its failure mode is the harshest one here.
+# A 429 there does not fail the request, it BLOCKS a correct answer for
+# "manual review", which reads to an operator as a compliance judgment about
+# the content rather than an infrastructure problem. Observed live on a
+# 3 RPM Moonshot org: retrieval and analysis both succeeded, and the answer
+# was blocked anyway.
+#
+# One policy in one place is the point — the duplication was the bug.
+
+# Transient infra failures (connection, 5xx). A blip; a couple of quick
+# retries either clears it or it is real.
+MAX_TRANSIENT_RETRIES = 2
+RETRY_BASE_DELAY_SECONDS = 0.5
+
+# Rate limits get their own, far more patient budget. A 429 is not a failure
+# signal like a 5xx — it is the upstream stating that the same request WILL
+# succeed after a wait, so the only wrong move is giving up early. A budget
+# sized for a blip (2 retries, 0.5s then 1.0s) cannot survive a per-minute
+# quota: a small Moonshot org is capped at 3 RPM while one FinVault query
+# makes ~5-8 sequential LLM calls, so mid-question 429s are routine rather
+# than exceptional. Capped per-delay so a pathological upstream cannot stall
+# a request indefinitely.
+MAX_RATE_LIMIT_RETRIES = 5
+RATE_LIMIT_BASE_DELAY_SECONDS = 4.0
+MAX_RETRY_DELAY_SECONDS = 30.0
+
+
+def complete_with_retries(
+    *,
+    client: OpenAI,
+    sleep: Callable[[float], None],
+    agent: str,
+    model: str,
+    **create_kwargs: Any,
+) -> Any:
+    """Issue one chat-completion request, retrying on transient upstream
+    conditions. Raises AgentExecutionError once a budget is exhausted, so
+    every caller fails closed on the same contract.
+    """
+    # Two independent budgets: a rate limit does not consume the allowance
+    # reserved for genuine infra failures, and vice versa.
+    transient_attempts = 0
+    rate_limit_attempts = 0
+    while True:
+        try:
+            response = client.chat.completions.create(model=model, **create_kwargs)
+            llm_requests_total.labels(agent=agent, model=model, outcome="success").inc()
+            return response
+        except _RETRYABLE_EXCEPTIONS as exc:
+            llm_requests_total.labels(agent=agent, model=model, outcome="retryable_error").inc()
+            llm_retries_total.labels(agent=agent, upstream_error=type(exc).__name__).inc()
+            is_rate_limit = isinstance(exc, RateLimitError)
+            if is_rate_limit:
+                rate_limit_attempts += 1
+                attempts, budget_limit = rate_limit_attempts, MAX_RATE_LIMIT_RETRIES
+                delay = min(
+                    RATE_LIMIT_BASE_DELAY_SECONDS * (2 ** (rate_limit_attempts - 1)),
+                    MAX_RETRY_DELAY_SECONDS,
+                )
+            else:
+                transient_attempts += 1
+                attempts, budget_limit = transient_attempts, MAX_TRANSIENT_RETRIES
+                delay = min(
+                    RETRY_BASE_DELAY_SECONDS * (2 ** (transient_attempts - 1)),
+                    MAX_RETRY_DELAY_SECONDS,
+                )
+            if attempts > budget_limit:
+                raise AgentExecutionError(
+                    f"Agent '{agent}' LLM request failed after {attempts} attempt(s) of a "
+                    f"retryable error ({type(exc).__name__}): {exc}",
+                    context={
+                        "agent": agent,
+                        "model": model,
+                        "attempts": attempts,
+                        "upstream_error": type(exc).__name__,
+                        "rate_limited": is_rate_limit,
+                    },
+                ) from exc
+            # WARNING, not ERROR: a retried transient failure that later
+            # succeeds is not an incident. It is logged anyway because a
+            # rising rate of these is the earliest warning of provider
+            # trouble, and it is otherwise completely invisible.
+            logger.warning(
+                "llm_request_retrying",
+                extra={
+                    "fields": {
+                        "agent": agent,
+                        "model": model,
+                        "attempt": attempts,
+                        "delay_seconds": delay,
+                        "upstream_error": type(exc).__name__,
+                        "rate_limited": is_rate_limit,
+                        "error_message": str(exc),
+                    }
+                },
+            )
+            sleep(delay)
+        except Exception as exc:
+            llm_requests_total.labels(agent=agent, model=model, outcome="error").inc()
+            raise AgentExecutionError(
+                f"Agent '{agent}' LLM request failed: {exc}",
+                context={"agent": agent, "model": model, "upstream_error": type(exc).__name__},
+            ) from exc
+    # `while True` only exits via return or raise above; no fallthrough.
 
 
 @dataclass
@@ -186,76 +318,38 @@ class Agent:
     # after repeated empty turns.
     _MAX_EMPTY_RESPONSE_RETRIES = 2
 
-    # Bounded retries specifically for transient infra failures (rate limit,
-    # connection, 5xx) — a different concern from the empty-response nudge
-    # above, which is about the model's own output, not the request itself.
-    _MAX_TRANSIENT_RETRIES = 2
-    _RETRY_BASE_DELAY_SECONDS = 0.5
+    # The retry policy itself lives at module level (see
+    # complete_with_retries) so ComplianceAgent's single-shot review call
+    # gets the identical behavior. Re-exported as class attributes because
+    # they read as tuning knobs of the agent loop at every call site.
+    _MAX_TRANSIENT_RETRIES = MAX_TRANSIENT_RETRIES
+    _RETRY_BASE_DELAY_SECONDS = RETRY_BASE_DELAY_SECONDS
+    _MAX_RATE_LIMIT_RETRIES = MAX_RATE_LIMIT_RETRIES
+    _RATE_LIMIT_BASE_DELAY_SECONDS = RATE_LIMIT_BASE_DELAY_SECONDS
+    _MAX_RETRY_DELAY_SECONDS = MAX_RETRY_DELAY_SECONDS
 
     def _create_completion(
         self,
         *,
         messages: list[dict[str, Any]],
         tool_schemas: list[dict[str, Any]],
-        tool_choice: dict[str, Any] | None = None,
+        tool_choice: dict[str, Any] | str | None = None,
     ) -> Any:
-        delay = self._RETRY_BASE_DELAY_SECONDS
-        for attempt in range(self._MAX_TRANSIENT_RETRIES + 1):
-            try:
-                kwargs: dict[str, Any] = {
-                    "model": self._model,
-                    "max_tokens": self._max_tokens,
-                    "messages": messages,
-                    "tools": tool_schemas or None,
-                    "extra_body": self._extra_body,
-                }
-                if tool_choice is not None:
-                    kwargs["tool_choice"] = tool_choice
-                response = self._client.chat.completions.create(**kwargs)
-                llm_requests_total.labels(agent=self.name, model=self._model, outcome="success").inc()
-                return response
-            except _RETRYABLE_EXCEPTIONS as exc:
-                llm_requests_total.labels(agent=self.name, model=self._model, outcome="retryable_error").inc()
-                llm_retries_total.labels(agent=self.name, upstream_error=type(exc).__name__).inc()
-                if attempt >= self._MAX_TRANSIENT_RETRIES:
-                    raise AgentExecutionError(
-                        f"Agent '{self.name}' LLM request failed after {attempt + 1} attempt(s) of a "
-                        f"retryable error ({type(exc).__name__}): {exc}",
-                        context={
-                            "agent": self.name,
-                            "model": self._model,
-                            "attempts": attempt + 1,
-                            "upstream_error": type(exc).__name__,
-                        },
-                    ) from exc
-                # WARNING, not ERROR: a retried transient failure that later
-                # succeeds is not an incident. It is logged anyway because a
-                # rising rate of these is the earliest warning of provider
-                # trouble, and it is otherwise completely invisible.
-                logger.warning(
-                    "llm_request_retrying",
-                    extra={
-                        "fields": {
-                            "agent": self.name,
-                            "model": self._model,
-                            "attempt": attempt + 1,
-                            "delay_seconds": delay,
-                            "upstream_error": type(exc).__name__,
-                            "error_message": str(exc),
-                        }
-                    },
-                )
-                self._sleep(delay)
-                delay *= 2
-            except Exception as exc:
-                llm_requests_total.labels(agent=self.name, model=self._model, outcome="error").inc()
-                raise AgentExecutionError(
-                    f"Agent '{self.name}' LLM request failed: {exc}",
-                    context={"agent": self.name, "model": self._model, "upstream_error": type(exc).__name__},
-                ) from exc
-        # Unreachable — the loop always returns or raises above — but keeps
-        # the type checker satisfied that every path produces a value.
-        raise AssertionError("unreachable")
+        kwargs: dict[str, Any] = {
+            "max_tokens": self._max_tokens,
+            "messages": messages,
+            "tools": tool_schemas or None,
+            "extra_body": self._extra_body,
+        }
+        if tool_choice is not None:
+            kwargs["tool_choice"] = tool_choice
+        return complete_with_retries(
+            client=self._client,
+            sleep=self._sleep,
+            agent=self.name,
+            model=self._model,
+            **kwargs,
+        )
 
     def run(
         self,
@@ -306,8 +400,22 @@ class Agent:
 
         for iteration in range(self._max_iterations):
             tool_choice = None
-            if iteration == 0 and self._require_tool_on_first_turn is not None:
-                tool_choice = {"type": "function", "function": {"name": self._require_tool_on_first_turn}}
+            forcing_this_turn = iteration == 0 and self._require_tool_on_first_turn is not None
+            if forcing_this_turn:
+                # "required" (call *some* tool), not the more precise
+                # {"type": "function", "function": {"name": ...}} form.
+                # Measured against the models actually served here: several
+                # providers silently ignore the explicit-function form and
+                # answer in plain text with finish_reason "stop", while
+                # honoring "required" — qwen-2.5-72b ignores both, kimi-k2.5
+                # ignores the explicit form and honors "required". Neither
+                # errors, so there is no capability check that would catch
+                # it; OpenRouter advertises `tool_choice` support for models
+                # whose upstream provider does not implement it.
+                # "required" lets the model pick the wrong tool, so it is a
+                # hint, not the guarantee — the guarantee is the fallback
+                # below, which does not depend on the provider at all.
+                tool_choice = "required"
             response = self._create_completion(messages=messages, tool_schemas=tool_schemas, tool_choice=tool_choice)
 
             # Not every upstream failure raises: a moderation block or
@@ -350,6 +458,60 @@ class Agent:
             messages.append(message.model_dump(exclude_none=True))
 
             if choice.finish_reason != "tool_calls" or not message.tool_calls:
+                if forcing_this_turn:
+                    # The provider ignored the forcing hint and answered
+                    # directly. Left alone, this is the failure that matters
+                    # most: the Orchestrator returns an answer composed from
+                    # nothing, with zero citations — and because
+                    # ComplianceAgent only verifies citations when some
+                    # exist, an ungrounded answer is reviewed as "clean".
+                    # So run the required tool ourselves rather than trusting
+                    # the model to. Its output is appended as a user turn
+                    # (not a synthetic assistant tool_call, which would need
+                    # a fabricated tool_call_id that some providers reject),
+                    # and the loop continues normally from there.
+                    forced_name = self._require_tool_on_first_turn
+                    assert forced_name is not None  # implied by forcing_this_turn
+                    logger.warning(
+                        "forced_tool_ignored_by_model",
+                        extra=extra_fields(
+                            agent=self.name,
+                            model=self._model,
+                            tool=forced_name,
+                            finish_reason=choice.finish_reason,
+                        ),
+                    )
+                    forced_tool_synthesized_total.labels(agent=self.name, tool=forced_name).inc()
+                    forced_tool = self._tools[forced_name]
+                    # The model produced no arguments, so fall back to the
+                    # raw user message as the single required argument. A
+                    # weaker search query than one the model would have
+                    # written, but a grounded answer from a blunt query
+                    # beats a fluent one from no retrieval at all.
+                    required_args = forced_tool.input_schema.get("required") or []
+                    forced_args = {required_args[0]: user_message} if required_args else {}
+                    try:
+                        forced_result = forced_tool.handler(forced_args)
+                    except AgentExecutionError:
+                        # Same fail-closed reasoning as the main dispatch
+                        # path below: a sub-agent failure is a request
+                        # failure, never a benign tool-result string.
+                        raise
+                    except Exception as exc:  # noqa: BLE001 — surface to the model, not the caller
+                        log_exception(logger, exc, "forced_tool_execution_failed", agent=self.name, tool=forced_name)
+                        forced_result = f"Error executing tool '{forced_name}': {exc}"
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                f"[System: {forced_name} was run automatically for you with "
+                                f"{json.dumps(forced_args)}. You must ground your answer in these "
+                                f"results rather than asking for clarification.]\n\n{forced_result}"
+                            ),
+                        }
+                    )
+                    continue
+
                 if message.content and message.content.strip():
                     return message.content
 

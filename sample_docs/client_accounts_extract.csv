@@ -1,0 +1,43 @@
+account_id,client_type,domicile,primary_strategy,aum_usd,inception_date,pep_flag,risk_rating,last_review_date
+48200,Institutional,United States,Core Fixed Income,7080218,2015-08-19,N,Medium,2026-01-15
+48201,Institutional,Luxembourg,Emerging Markets Debt,86705650,2017-02-20,N,Low,2026-03-25
+48202,Pension Fund,Singapore,Global Equity,7132061,2023-11-30,N,Medium,2026-03-07
+48203,Institutional,Ireland,US Small Cap,40845962,2011-07-01,Y,High,2026-03-26
+48204,Institutional,United Kingdom,US Small Cap,51131052,2018-09-25,N,Low,2026-03-06
+48205,Family Office,Panama,Liquid Alternatives,31235192,2013-11-16,Y,High,2026-04-13
+48206,Institutional,Ireland,Liquid Alternatives,41129735,2017-06-22,N,Medium,2026-06-22
+48207,Institutional,United Kingdom,Core Fixed Income,35198302,2021-08-05,N,Low,2026-03-08
+48208,Institutional,Luxembourg,Emerging Markets Debt,137514895,2017-12-04,N,Medium,2026-03-16
+48209,HNW Individual,Panama,Core Fixed Income,18853861,2015-05-15,N,High,2026-05-04
+48210,Family Office,United Kingdom,Multi-Asset,133259203,2013-10-03,N,Medium,2026-02-02
+48211,Family Office,United States,US Small Cap,57404032,2022-09-05,N,Low,2026-03-17
+48212,Endowment,United Kingdom,Emerging Markets Debt,73614833,2021-12-17,N,Low,2026-01-08
+48213,Family Office,Panama,Liquid Alternatives,61400000,2017-01-14,Y,High,2026-06-14
+48214,HNW Individual,Singapore,US Small Cap,11662295,2019-04-30,N,Medium,2026-04-21
+48215,Institutional,Cyprus,Liquid Alternatives,46164664,2013-06-09,Y,High,2026-04-09
+48216,Institutional,United States,Liquid Alternatives,2500000,2018-09-13,N,Low,2026-06-29
+48217,HNW Individual,United Kingdom,Multi-Asset,50454546,2016-09-17,N,Low,2026-04-19
+48218,HNW Individual,Cayman Islands,US Small Cap,32593116,2015-10-21,N,High,2026-01-24
+48219,Institutional,Ireland,Emerging Markets Debt,18160642,2023-06-23,N,Low,2026-05-27
+48220,Institutional,Singapore,Core Fixed Income,895722570,2019-07-05,N,Medium,2026-04-15
+48221,Endowment,Cayman Islands,Multi-Asset,33492110,2024-09-20,N,High,2026-07-02
+48222,HNW Individual,United States,Core Fixed Income,8244771,2012-10-16,N,Medium,2026-01-12
+48223,Institutional,Singapore,Multi-Asset,109189338,2022-05-06,N,Low,2026-03-30
+48224,Institutional,Ireland,US Small Cap,11499752,2014-06-01,N,Low,2026-03-29
+48225,Institutional,United States,Multi-Asset,7869096,2015-12-07,N,Low,2026-03-21
+48226,Endowment,United States,Global Equity,56577640,2012-04-12,N,Medium,2026-06-10
+48227,Institutional,United States,Core Fixed Income,22836866,2018-02-13,N,Low,2026-06-29
+48228,Institutional,United Kingdom,Multi-Asset,78217005,2016-01-15,N,Medium,2026-04-23
+48229,Institutional,Ireland,Core Fixed Income,26932611,2016-12-27,N,Low,2026-03-13
+48230,Institutional,Ireland,Multi-Asset,43887859,2014-11-16,N,Low,2026-05-08
+48231,Pension Fund,United States,Liquid Alternatives,32066914,2024-01-15,N,Low,2026-05-01
+48232,Institutional,Luxembourg,Emerging Markets Debt,24461353,2012-05-07,N,Medium,2026-07-04
+48233,Institutional,United States,Global Equity,116986714,2013-11-15,N,Medium,2026-01-06
+48234,Family Office,Ireland,Emerging Markets Debt,12716811,2017-03-26,Y,High,2026-02-07
+48235,Institutional,United Kingdom,US Small Cap,38373002,2020-04-04,N,Low,2026-03-22
+48236,Pension Fund,Singapore,Liquid Alternatives,15970455,2023-11-13,N,Low,2026-04-24
+48237,Institutional,United States,Multi-Asset,52495174,2014-06-29,N,Medium,2026-05-09
+48238,HNW Individual,Panama,Emerging Markets Debt,20266599,2016-05-15,N,High,2026-04-05
+48239,HNW Individual,United States,Emerging Markets Debt,11673908,2015-01-04,N,Low,2026-01-06
+48240,Pension Fund,Cayman Islands,US Small Cap,127261336,2020-02-28,Y,High,2026-03-28
+48241,Institutional,Ireland,Liquid Alternatives,2500000,2013-03-15,N,Low,2026-01-28

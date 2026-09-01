@@ -26,19 +26,69 @@ class Settings(BaseSettings):
     kimi_api_key: str | None = None
     moonshot_api_key: str | None = None
     moonshot_base_url: str = "https://api.moonshot.ai/v1"
-    finvault_model: str = "nvidia/nemotron-3-super-120b-a12b:free"
+    # Which upstream to talk to, stated rather than inferred. The properties
+    # below originally guessed the route from whichever key happened to be
+    # non-empty, which meant that merely *pasting* a Moonshot key silently
+    # moved every LLM call off OpenRouter — and since the two use different
+    # model-name conventions ("moonshotai/kimi-k2.5" vs bare "kimi-k3"), the
+    # slug in FINVAULT_MODEL would then be wrong for the route it reached,
+    # failing at request time rather than at startup.
+    # "auto" preserves the original inference for existing deployments;
+    # "openrouter"/"moonshot" pin it explicitly.
+    finvault_llm_route: str = "auto"
+    # Per-request HTTP timeout for LLM calls. Was hardcoded at 60s, which is
+    # below the single-call latency of a reasoning model that thinks before
+    # answering (kimi-k3 direct exceeded it routinely), turning a slow-but-
+    # working model into a stream of timeouts. Configurable because the right
+    # value is a property of the chosen model, not of this codebase.
+    # 180, not the old 60: the shipped default model must work out of the
+    # box, and the code default has to agree with .env.example rather than
+    # leave a clone slower-than-the-template. The cost is that a genuinely
+    # hung upstream now stalls one request for 3 minutes instead of 1 —
+    # acceptable, because a timeout that fires on a *working* call is a
+    # false failure, while a slow hang is only slow.
+    finvault_llm_timeout_seconds: float = 180.0
+    # Default is a free model *verified* to honor tool_choice="required"
+    # (probe table in .env.example). The model default is not a neutral
+    # convenience here: a model that ignores tool forcing makes the
+    # Orchestrator answer without retrieving, and base.py's fallback then
+    # searches on a blunter query than the model would have written. Any
+    # replacement default must be probed the same way first.
+    finvault_model: str = "minimax/minimax-m2.7:free"
     finvault_max_tokens: int = 4096
+
+    # Ceiling for ComplianceAgent's semantic-review call. Its own setting,
+    # not finvault_max_tokens, because the review is a one-word verdict and
+    # was capped at 200 on that basis — correct for a model that answers
+    # directly, wrong for one that thinks first. A reasoning model spends
+    # this budget on reasoning and gets truncated (finish_reason "length")
+    # before emitting the verdict, so content comes back empty and the
+    # reviewer fails closed: a correct answer blocked for "manual review"
+    # because the reviewer was never given room to speak. Observed live on
+    # kimi-k3.
+    #
+    # Raising it is close to free — max_tokens is a ceiling, not a spend, so
+    # a non-thinking model still emits its ~5 tokens and is billed for those.
+    finvault_compliance_review_max_tokens: int = 2048
 
     @property
     def effective_api_key(self) -> str | None:
-        return (
-            self.llm_api_key or self.hf_token or self.kimi_api_key or self.moonshot_api_key or self.openrouter_api_key
-        )
+        if self.llm_api_key:
+            return self.llm_api_key
+        if self.finvault_llm_route == "openrouter":
+            return self.openrouter_api_key
+        if self.finvault_llm_route == "moonshot":
+            return self.kimi_api_key or self.moonshot_api_key
+        return self.hf_token or self.kimi_api_key or self.moonshot_api_key or self.openrouter_api_key
 
     @property
     def effective_base_url(self) -> str:
         if self.llm_base_url:
             return self.llm_base_url
+        if self.finvault_llm_route == "openrouter":
+            return self.openrouter_base_url
+        if self.finvault_llm_route == "moonshot":
+            return self.moonshot_base_url
         if self.hf_token or (self.llm_api_key and "hf" in self.llm_api_key.lower()):
             return "https://router.huggingface.co/v1"
         if self.kimi_api_key or self.moonshot_api_key:

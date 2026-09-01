@@ -1,0 +1,29 @@
+Acme Capital Partners — Enhanced Due Diligence (EDD) Review Case Study
+
+Classification: Confidential — Compliance and Risk Management Teams Only.
+
+Case ID: EDD-2026-784
+Subject: High-Net-Worth Entity Onboarding & Politically Exposed Person (PEP) Assessment
+Date of Review: 2026-08-15
+Lead Compliance Officer: Priya Raghunathan
+
+1. Entity Information & Beneficial Ownership
+Entity Name: Horizon Global Infrastructure Partners LP
+Jurisdiction: Cayman Islands (High-Risk Screening Tier-2)
+Ultimate Beneficial Owner (UBO): Marcus Vance (45% equity interest, PEP status confirmed via WorldCheck)
+Secondary Beneficial Owner: Elena Rostova (30% equity interest)
+
+2. Source of Wealth and Funds Analysis
+Initial Account Deposit: $15,000,000.00 USD
+Stated Source of Funds: Divestiture of European logistics assets in Q2 2026.
+Supporting Documentation: Audited financial statements, notarized bill of sale, and bank reference letters.
+
+3. Entity & Relationship Graph Mapping (For Knowledge Graph Extraction)
+- Horizon Global Infrastructure Partners LP is controlled by Marcus Vance (Relationship: BENEFICIAL_OWNER).
+- Marcus Vance holds PEP status due to previous parliamentary advisory appointment in 2023.
+- Horizon Global Infrastructure Partners LP maintains banking relationships with Acme Securities LLC.
+- Compliance Officer Priya Raghunathan approved conditional onboarding subject to quarterly transaction threshold monitoring (<$5,000,000 per monthly cycle).
+
+4. Risk Rating & Ongoing Monitoring Protocol
+Overall Risk Rating: HIGH (PEP involvement + Offshore jurisdiction).
+Monitoring Frequency: Bi-weekly transaction review and annual re-certification required by 2027-08-15.
