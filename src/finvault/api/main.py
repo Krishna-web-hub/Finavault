@@ -53,8 +53,19 @@ from finvault.security.rls import enable_row_level_security, install_org_scoping
 
 logger = get_logger(__name__)
 
-# src/finvault/api/main.py -> api/ -> finvault/ -> src/ -> project root -> frontend/
-FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
+def _resolve_frontend_dir() -> Path:
+    for candidate in [
+        Path("/app/frontend"),
+        Path.cwd() / "frontend",
+        Path(__file__).resolve().parents[3] / "frontend",
+    ]:
+        if candidate.is_dir():
+            return candidate
+    return Path("/app/frontend")
+
+
+# Resolves frontend dir across dev checkout, installed package, and Docker container (/app/frontend)
+FRONTEND_DIR = _resolve_frontend_dir()
 
 
 @asynccontextmanager
