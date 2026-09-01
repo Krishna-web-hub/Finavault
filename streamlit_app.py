@@ -25,11 +25,18 @@ SRC_DIR = ROOT_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-# Sync Streamlit secrets to os.environ so FinVault settings picks them up
-if hasattr(st, "secrets"):
+# Sync Streamlit secrets to os.environ so FinVault settings picks them up.
+# hasattr(st, "secrets") is not a guard: the attribute always exists, and it is
+# .items() that raises StreamlitSecretNotFoundError when no secrets.toml is
+# present — which is the normal case for a local run and for a Cloud app before
+# any secrets are entered. Catching it keeps the no-config path alive; env vars
+# and .env still supply settings on their own.
+try:
     for key, val in st.secrets.items():
         if isinstance(val, (str, int, float, bool)):
             os.environ[key] = str(val)
+except Exception:
+    pass
 
 from finvault.agents.compliance_agent import ComplianceAgent
 from finvault.agents.orchestrator import Orchestrator, OrchestratorResult
@@ -40,15 +47,29 @@ from finvault.ingestion.classification import ClassificationSuggester
 from finvault.ingestion.embeddings import LocalEmbeddingProvider
 from finvault.ingestion.extraction import ExtractionAgent
 from finvault.ingestion.pipeline import IngestionPipeline
-from finvault.models import User
+from finvault.models import CLASSIFICATION_RANK, Classification, Role, User
 from finvault.retrieval.graph_retriever import GraphRetriever
 from finvault.retrieval.graph_store import PostgresGraphStore
 from finvault.retrieval.reranker import LocalCrossEncoderReranker
 from finvault.retrieval.retriever import Retriever
 from finvault.retrieval.vector_store import QdrantStore
+from finvault.security.access_control import check_clearance
 from finvault.security.audit import PostgresAuditLog
 from finvault.security.encryption import EnvelopeEncryptor, LocalKeyProvider
 from finvault.security.review_queue import PostgresReviewQueue
+
+
+def clearance_ceiling(role: Role) -> Classification:
+    """Highest classification `role` is allowed to retrieve.
+
+    Derived rather than stored: check_clearance is the authority, so this can
+    never disagree with what the retrieval path will actually permit.
+    """
+    return max(
+        (c for c in Classification if check_clearance(role, c)),
+        key=lambda c: CLASSIFICATION_RANK[c],
+    )
+
 
 # --- Streamlit Page Configuration ---
 st.set_page_config(
@@ -237,24 +258,39 @@ with st.sidebar:
     st.subheader("👤 User Identity & RBAC")
 
     user_id = st.text_input("User ID / Email", value="analyst_jane@acme-corp.com")
+    # Options come from the Role enum itself. Hardcoding a list here let it
+    # drift: "executive", "auditor" and "guest" were offered but are not roles
+    # the domain model knows, so choosing one was a ValidationError.
+    role_options = [r.value for r in Role]
     user_role = st.selectbox(
         "User Role",
-        options=["analyst", "compliance_officer", "executive", "auditor", "guest"],
-        index=0,
-    )
-    user_clearance = st.selectbox(
-        "Clearance Level",
-        options=["confidential", "internal", "public", "restricted"],
-        index=0,
-        help="Controls the classification ceiling of chunks this user is allowed to retrieve.",
+        options=role_options,
+        index=role_options.index(Role.ANALYST.value),
     )
     org_id = st.text_input("Tenant / Organization ID", value="org_default")
+
+    current_role = Role(user_role)
+    # Clearance is DERIVED from role, never chosen alongside it — ROLE_RANK vs
+    # CLASSIFICATION_MIN_ROLE in models.py is the only clearance primitive in
+    # the system. A separate picker implied the two could disagree, and since
+    # User has no `clearance` field, whatever it was set to was silently
+    # dropped by pydantic while the demo's gating still read it.
+    user_clearance = clearance_ceiling(current_role).value
+    st.text_input(
+        "Clearance Level (derived from role)",
+        value=user_clearance,
+        disabled=True,
+        help=(
+            "Not an independent setting: the highest classification this role may "
+            "retrieve, computed from ROLE_RANK and CLASSIFICATION_MIN_ROLE."
+        ),
+    )
 
     # Construct the User object
     current_user = User(
         id=user_id,
-        role=user_role,
-        clearance=user_clearance,
+        username=user_id,
+        role=current_role,
         org_id=org_id,
     )
 
@@ -468,7 +504,10 @@ with tab_chat:
                         top_k=4,
                     )
 
-                    # Check clearance restrictions
+                    # Check clearance restrictions. check_clearance is the same
+                    # call the retrieval path makes, so the demo cannot claim a
+                    # verdict the real access-control module would not reach.
+                    may_see_restricted = check_clearance(current_role, Classification.RESTRICTED)
                     is_restricted_query = (
                         "executive" in user_prompt.lower()
                         or "compensation" in user_prompt.lower()
@@ -497,14 +536,12 @@ with tab_chat:
                         {
                             "name": "compliance_guardrail_verification",
                             "agent_name": "compliance_agent",
-                            "status": "warning"
-                            if (is_restricted_query and user_clearance != "restricted")
-                            else "success",
+                            "status": "warning" if (is_restricted_query and not may_see_restricted) else "success",
                             "output_preview": "Enforced externalization policy, PII pattern redactions, and strict grounded claim verification.",
                         },
                     ]
 
-                    if is_restricted_query and user_clearance != "restricted":
+                    if is_restricted_query and not may_see_restricted:
                         res_blocked = True
                         res_reason = "clearance_ceiling_exceeded"
                         res_answer = (
