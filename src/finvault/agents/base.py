@@ -101,9 +101,10 @@ SDK_INTERNAL_RETRIES = 0
 
 
 def _client() -> OpenAI:
+    api_key = settings.effective_api_key or "unconfigured"
     return OpenAI(
         base_url=settings.effective_base_url,
-        api_key=settings.effective_api_key,
+        api_key=api_key,
         timeout=settings.finvault_llm_timeout_seconds,
         max_retries=SDK_INTERNAL_RETRIES,
     )
@@ -155,6 +156,13 @@ def complete_with_retries(
     conditions. Raises AgentExecutionError once a budget is exhausted, so
     every caller fails closed on the same contract.
     """
+    client_key = getattr(client, "api_key", None)
+    if client_key == "unconfigured":
+        raise AgentExecutionError(
+            f"Agent '{agent}' cannot execute: LLM API key is unconfigured. "
+            "Please provide an API key in the Streamlit sidebar or configure OPENROUTER_API_KEY / OPENAI_API_KEY."
+        )
+
     # Two independent budgets: a rate limit does not consume the allowance
     # reserved for genuine infra failures, and vice versa.
     transient_attempts = 0

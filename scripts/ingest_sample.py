@@ -48,7 +48,7 @@ def _build_vector_store(dimension: int) -> VectorStore:
         store = QdrantStore(url=settings.qdrant_url, collection=settings.qdrant_collection, dimension=dimension)
         print(f"[infra] connected to Qdrant at {settings.qdrant_url}")
         return store
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"[infra] Qdrant unavailable ({exc}); falling back to in-memory vector store")
         return InMemoryVectorStore()
 
@@ -72,7 +72,7 @@ def _build_audit_log_and_engine() -> tuple[AuditLog, Engine | None]:
         init_db(engine)
         print("[infra] connected to Postgres")
         return PostgresAuditLog(engine), engine
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"[infra] Postgres unavailable ({exc}); falling back to in-memory audit log")
         return InMemoryAuditLog(), None
 

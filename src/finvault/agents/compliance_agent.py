@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 
 from openai import OpenAI
 
-from finvault.agents.base import SDK_INTERNAL_RETRIES, complete_with_retries
+from finvault.agents.base import _client, complete_with_retries
 from finvault.config import settings
 from finvault.metrics import compliance_verdicts_total
 from finvault.models import Classification
@@ -102,18 +102,7 @@ class ComplianceAgent:
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self._model = model or settings.finvault_model
-        self._client = client or OpenAI(
-            base_url=settings.effective_base_url,
-            api_key=settings.effective_api_key,
-            # Same configured timeout as every other LLM call. Hardcoding 60
-            # here meant a reasoning model that comfortably answered the
-            # question then timed out being reviewed — blocking its own
-            # correct answer.
-            timeout=settings.finvault_llm_timeout_seconds,
-            # As in base.py: the shared retry policy is the only one that
-            # should be retrying, so the SDK's blind 1s retries are off.
-            max_retries=SDK_INTERNAL_RETRIES,
-        )
+        self._client = client or _client()
         self._semantic_review = semantic_review
         # Injectable so tests can exercise the retry path without sleeping.
         self._sleep = sleep

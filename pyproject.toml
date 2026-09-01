@@ -96,8 +96,9 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Scripts are user-facing CLIs whose output IS print(); tests assert on
 # internals and shadow names freely.
-"scripts/*" = ["T20"]
+"scripts/*" = ["T20", "BLE"]
 "tests/*" = ["T20", "BLE"]
+"streamlit_app.py" = ["T20", "BLE", "E402", "RUF001", "SIM117"]
 
 [tool.ruff.format]
 quote-style = "double"
