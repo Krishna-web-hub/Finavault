@@ -11,6 +11,9 @@ suggested_hardware: cpu-upgrade
 
 # FinVault
 
+🚀 **Live Demo on Google Cloud:** [https://finavault-335067811983.europe-west1.run.app/app](https://finavault-335067811983.europe-west1.run.app/app)  
+📚 **Interactive API Docs (Swagger):** [https://finavault-335067811983.europe-west1.run.app/docs](https://finavault-335067811983.europe-west1.run.app/docs)
+
 A secure, self-hostable multi-agent RAG platform for finance. Built to be usable as a solo/small-business tool and as something a bank, hedge fund, or corporate finance/compliance team could adopt — security is the product's core differentiator, not a bolt-on.
 
 **The pitch:** ask questions of your most sensitive financial documents without your most sensitive financial documents ever leaving your control unencrypted or unclassified.
