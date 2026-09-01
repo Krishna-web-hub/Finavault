@@ -51,12 +51,18 @@ class QdrantStore(VectorStore):
     interface.
     """
 
-    def __init__(self, *, url: str, collection: str, dimension: int) -> None:
+    def __init__(self, *, url: str, collection: str, dimension: int, api_key: str | None = None) -> None:
         from qdrant_client import QdrantClient
         from qdrant_client.models import Distance, VectorParams
 
+        # api_key is keyword-optional rather than required because it is only
+        # meaningful for the HTTP(S) branch: a managed cluster (Qdrant Cloud)
+        # rejects unauthenticated requests, while the embedded and :memory:
+        # branches have no auth layer at all and would reject the kwarg.
+        # Defaulting to None keeps docker-compose and the test suite working
+        # against a local, unauthenticated Qdrant with no call-site change.
         if url.startswith("http://") or url.startswith("https://"):
-            self._client = QdrantClient(url=url)
+            self._client = QdrantClient(url=url, api_key=api_key or None)
         elif url in (":memory:", "memory"):
             self._client = QdrantClient(location=":memory:")
         else:

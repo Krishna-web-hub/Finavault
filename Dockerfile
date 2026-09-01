@@ -25,8 +25,15 @@ WORKDIR /build
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
+# torch is installed from PyTorch's CPU index *before* the project, so that
+# `pip install .` finds the requirement already satisfied. Without this, the
+# default PyPI resolution of sentence-transformers -> torch drags in the
+# nvidia-cublas / nvidia-cudnn / nvidia-cusparse CUDA runtime wheels — around
+# 2GB of GPU libraries on a host that has no GPU, paid for on every build,
+# push, and cold start.
 RUN python -m venv /opt/venv \
  && /opt/venv/bin/pip install --upgrade pip \
+ && /opt/venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu \
  && /opt/venv/bin/pip install .
 
 # ---------- runtime ----------
@@ -58,6 +65,14 @@ RUN mkdir -p /app/.secrets /app/data /home/finvault/.cache \
  && chown -R finvault:finvault /app /home/finvault
 
 USER finvault
+
+# Bake the embedding weights into the image. Downloading them during the
+# FastAPI lifespan instead makes first boot race the platform's start-period
+# (HEALTHCHECK below for Docker/Compose, grace_period in fly.toml for Fly),
+# and makes every cold start depend on huggingface.co being reachable. Must
+# come after USER so the cache lands in the app user's HF_HOME.
+ARG EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('${EMBEDDING_MODEL}')"
 
 EXPOSE 7860
 

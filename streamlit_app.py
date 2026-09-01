@@ -183,6 +183,7 @@ def init_finvault_backend():
             url=settings.qdrant_url,
             collection=settings.qdrant_collection,
             dimension=embedding_provider.dimension,
+            api_key=settings.qdrant_api_key,
         )
     except Exception:
         vector_mode = "in_memory"

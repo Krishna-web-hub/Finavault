@@ -106,7 +106,10 @@ async def lifespan(app: FastAPI):
             embedding_provider, cache, ttl_seconds=settings.finvault_embedding_cache_ttl_seconds
         )
     vector_store = QdrantStore(
-        url=settings.qdrant_url, collection=settings.qdrant_collection, dimension=embedding_provider.dimension
+        url=settings.qdrant_url,
+        collection=settings.qdrant_collection,
+        dimension=embedding_provider.dimension,
+        api_key=settings.qdrant_api_key,
     )
     audit_log = PostgresAuditLog(engine)
 

@@ -100,6 +100,12 @@ class Settings(BaseSettings):
     # Qdrant/Postgres that may already be running on the standard ports.
     qdrant_url: str = "http://localhost:6350"
     qdrant_collection: str = "finvault_chunks"
+    # Empty for a local/self-hosted Qdrant, which has no auth. Required by
+    # Qdrant Cloud. Kept here rather than embedded in qdrant_url because it
+    # is a credential: it belongs in the deployment's secret store, and a
+    # URL is the kind of value that ends up in logs (api/main.py logs
+    # qdrant_url at startup).
+    qdrant_api_key: str | None = None
     postgres_dsn: str = "postgresql://finvault:finvault_dev_only@localhost:5433/finvault"
 
     # Security
