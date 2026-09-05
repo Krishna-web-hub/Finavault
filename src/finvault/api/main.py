@@ -47,7 +47,8 @@ from finvault.retrieval.reranker import LocalCrossEncoderReranker
 from finvault.retrieval.retriever import Retriever
 from finvault.retrieval.vector_store import QdrantStore
 from finvault.security.audit import PostgresAuditLog
-from finvault.security.encryption import EnvelopeEncryptor, LocalKeyProvider
+from finvault.security.encryption import EnvelopeEncryptor
+from finvault.security.kms import build_key_provider
 from finvault.security.quarantine import PostgresQuarantineStore
 from finvault.security.review_queue import PostgresReviewQueue
 from finvault.security.rls import enable_row_level_security, install_org_scoping, verify_isolation
@@ -106,7 +107,7 @@ async def lifespan(app: FastAPI):
     cache = build_cache()
     app.state.cache = cache
 
-    key_provider = LocalKeyProvider(settings.finvault_master_key_path)
+    key_provider = build_key_provider()
     encryptor = EnvelopeEncryptor(key_provider)
     embedding_provider: LocalEmbeddingProvider | CachedEmbeddingProvider = LocalEmbeddingProvider(
         settings.finvault_embedding_model

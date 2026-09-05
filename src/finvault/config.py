@@ -132,6 +132,19 @@ class Settings(BaseSettings):
 
     # Security
     finvault_master_key_path: Path = Path(".secrets/master.key")
+    # Which KeyProvider guards the KEK: "local" (file-backed, the dev and
+    # self-hosted default) or "gcp_kms" (Cloud KMS, see security/kms.py).
+    # Deliberately no automatic fallback between them — see build_key_provider.
+    finvault_key_provider: str = "local"
+    # Full CryptoKey resource path, required when finvault_key_provider is
+    # gcp_kms: projects/<p>/locations/<l>/keyRings/<r>/cryptoKeys/<k>
+    finvault_gcp_kms_key_name: str | None = None
+    # Unwrapped-DEK cache (security/kms.py). The TTL is the window in which
+    # a decrypt can happen without KMS authorizing it, so shortening it
+    # tightens revocation at the cost of more KMS calls; 0 disables caching
+    # entirely and sends every unwrap to KMS.
+    finvault_kms_dek_cache_max_entries: int = 2048
+    finvault_kms_dek_cache_ttl_seconds: float = 300.0
     finvault_jwt_secret: str = "dev-only-change-me"
 
     # Embeddings & Hugging Face

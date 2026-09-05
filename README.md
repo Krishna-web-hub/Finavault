@@ -417,7 +417,7 @@ advisory dependency audit.
 
 Explicitly out of scope for this pass:
 
-- **Cloud KMS/Vault adapters** — `LocalKeyProvider` is the reference implementation; production deployments should implement `KeyProvider` against AWS KMS / HashiCorp Vault.
+- **AWS KMS / HashiCorp Vault adapters** — Google Cloud KMS is implemented (`security/kms.py`, `FINVAULT_KEY_PROVIDER=gcp_kms`), matching the Cloud Run deployment. AWS KMS and Vault are the same `KeyProvider` interface and are not built here.
 - **Multi-tenant hardening** — org isolation is enforced at the query/ACL layer, but this hasn't been hardened against a determined multi-tenant threat model (e.g. side channels, noisy-neighbor resource isolation).
 - **Managed vector-DB adapter** — Qdrant is self-hosted via Docker; a managed Qdrant Cloud (or alternative) adapter is a config change behind the existing `VectorStore` interface, not built here.
 - **Fine-grained field-level encryption** — encryption is at chunk granularity, not per-field within a chunk.
