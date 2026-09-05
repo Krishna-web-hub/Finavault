@@ -359,8 +359,166 @@
 </div>
 
 <script>
-const state = { token: null, username: null, role: null, org: null, documents: [] };
+const state = { token: null, username: null, role: null, org: null, documents: [], sessionId: null, ns: null };
 const $ = (id) => document.getElementById(id);
+
+// --- Encrypted conversation cache (IndexedDB + AES-GCM) --------------------
+//
+// Survives a reload so a conversation isn't lost to a refresh. Everything
+// here exists to contain one fact: this is the only place FinVault puts
+// answer text somewhere the server's ACL model cannot reach it. Server-side,
+// every retrieval is authorized against the user's clearance *at query time*
+// (retrieval/retriever.py); a row on the user's disk was authorized under
+// whatever clearance they had when it was written.
+//
+// Four controls follow from that:
+//
+// 1. NAMESPACE = SHA-256(username|org|role). Deliberately mirrors the rule
+//    in cache.py: "a key must encode everything that changes the answer —
+//    the org AND the caller's role". A role downgrade changes the namespace,
+//    so entries written at a higher clearance become unreadable rather than
+//    lingering. It is also why a second user on a shared browser cannot read
+//    the first one's cache.
+// 2. NON-EXTRACTABLE KEY. The AES-GCM key is generated with extractable:false
+//    and persisted as a CryptoKey object via IndexedDB's structured clone, so
+//    raw key bytes never exist in JS. XSS can still *use* the key while the
+//    page is open — nothing in the browser prevents that — but it cannot
+//    exfiltrate the key for offline decryption of a stolen database file.
+// 3. TTL. Entries older than MAX_AGE_MS are dropped on read, bounding how
+//    long a stale authorization can survive.
+// 4. WIPE on sign-out and on any 401, so a dead token doesn't leave readable
+//    history behind.
+//
+// Deliberately NOT implemented: wrapping the key for recovery. Web Crypto
+// forbids exportKey/wrapKey on a non-extractable key, which is the entire
+// point of one. This store is a cache, not the system of record — the
+// durable copy is server-side in the `sessions` table, so a lost local key
+// costs a re-fetch, not data.
+const convStore = (() => {
+  const DB_NAME = 'finvault-conv';
+  const DB_VERSION = 1;
+  const KEY_STORE = 'keys';
+  const TURN_STORE = 'turns';
+  const MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+  let db = null;
+
+  const idb = (req) => new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  async function openDb() {
+    if (db) return db;
+    db = await new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        if (!d.objectStoreNames.contains(KEY_STORE)) d.createObjectStore(KEY_STORE, { keyPath: 'ns' });
+        if (!d.objectStoreNames.contains(TURN_STORE)) {
+          const store = d.createObjectStore(TURN_STORE, { keyPath: 'id', autoIncrement: true });
+          store.createIndex('ns', 'ns', { unique: false });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return db;
+  }
+
+  const tx = async (storeName, mode) => (await openDb()).transaction(storeName, mode).objectStore(storeName);
+
+  // Identity fingerprint. Hashed rather than stored in the clear so the
+  // username and org aren't sitting in IndexedDB as plaintext metadata.
+  async function namespaceFor({ username, org, role }) {
+    const material = new TextEncoder().encode(`${username}|${org}|${role}`);
+    const digest = await crypto.subtle.digest('SHA-256', material);
+    return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function keyFor(ns) {
+    const existing = await idb((await tx(KEY_STORE, 'readonly')).get(ns));
+    if (existing && existing.key) return existing.key;
+    const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    await idb((await tx(KEY_STORE, 'readwrite')).put({ ns, key }));
+    return key;
+  }
+
+  // The namespace is the AAD, so a record cannot be moved between
+  // identities: GCM rejects a decrypt whose AAD doesn't match the one the
+  // ciphertext was sealed with.
+  const aad = (ns) => new TextEncoder().encode(ns);
+
+  async function open(identity) {
+    const ns = await namespaceFor(identity);
+    await keyFor(ns);
+    // Any other namespace belongs to a previous user or a pre-downgrade
+    // clearance. Nothing will ever read it again, so don't leave it on disk.
+    await purgeOtherNamespaces(ns);
+    return ns;
+  }
+
+  async function append(ns, turn) {
+    const key = await keyFor(ns);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plaintext = new TextEncoder().encode(JSON.stringify(turn));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: aad(ns) }, key, plaintext);
+    await idb((await tx(TURN_STORE, 'readwrite')).add({ ns, ts: Date.now(), iv, ct }));
+  }
+
+  async function load(ns) {
+    const key = await keyFor(ns);
+    const rows = await idb((await tx(TURN_STORE, 'readonly')).index('ns').getAll(ns));
+    const cutoff = Date.now() - MAX_AGE_MS;
+    const fresh = [];
+    const stale = [];
+    for (const row of rows) {
+      if (row.ts < cutoff) { stale.push(row.id); continue; }
+      try {
+        const plaintext = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: row.iv, additionalData: aad(ns) }, key, row.ct,
+        );
+        fresh.push({ id: row.id, ...JSON.parse(new TextDecoder().decode(plaintext)) });
+      } catch (e) {
+        // Undecryptable: a regenerated key, or a tampered/moved record.
+        // Drop it rather than surfacing an error — this is a cache.
+        stale.push(row.id);
+      }
+    }
+    if (stale.length) {
+      const store = await tx(TURN_STORE, 'readwrite');
+      stale.forEach((id) => store.delete(id));
+    }
+    return fresh.sort((a, b) => a.id - b.id);
+  }
+
+  async function clearNamespace(ns) {
+    if (!ns) return;
+    const store = await tx(TURN_STORE, 'readwrite');
+    const ids = await idb(store.index('ns').getAllKeys(ns));
+    ids.forEach((id) => store.delete(id));
+  }
+
+  async function purgeOtherNamespaces(keep) {
+    const turns = await tx(TURN_STORE, 'readwrite');
+    const rows = await idb(turns.getAll());
+    rows.filter((r) => r.ns !== keep).forEach((r) => turns.delete(r.id));
+    const keys = await tx(KEY_STORE, 'readwrite');
+    const keyRows = await idb(keys.getAll());
+    keyRows.filter((r) => r.ns !== keep).forEach((r) => keys.delete(r.ns));
+  }
+
+  // Sign-out and token death: remove the ciphertext AND the key, so nothing
+  // readable is left behind for the next person at this browser.
+  async function wipe(ns) {
+    try {
+      await clearNamespace(ns);
+      if (ns) await idb((await tx(KEY_STORE, 'readwrite')).delete(ns));
+    } catch (e) { /* a cache that won't clear must not block sign-out */ }
+  }
+
+  return { open, append, load, clearNamespace, wipe };
+})();
 
 // A 401 means the JWT died (expired — tokens last 60 minutes with no
 // refresh, see api/auth.py) or was otherwise rejected. Every authenticated
@@ -370,6 +528,12 @@ const $ = (id) => document.getElementById(id);
 // an explicit explanation instead of leaving that confusing state to be
 // discovered one failed click at a time.
 function handleSessionExpired(message) {
+  // Wipe first: the namespace is derived from identity, so clearing after
+  // state is reset would leave the ciphertext addressed by a namespace
+  // nothing can compute again — undeletable rather than merely unreadable.
+  convStore.wipe(state.ns);
+  state.ns = null;
+  state.sessionId = null;
   state.token = null;
   $('app-screen').classList.remove('active');
   $('session-info').style.display = 'none';
@@ -460,6 +624,7 @@ $('login-btn').addEventListener('click', async () => {
     state.role = role;
     state.org = org_id;
     enterApp();
+    await restoreConversation();
   } catch (e) {
     $('login-error').innerHTML = `<div class="error-banner">Sign-in failed: ${e.message}</div>`;
   } finally {
@@ -472,7 +637,54 @@ $('login-org').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('lo
 
 $('logout-btn').addEventListener('click', () => handleSessionExpired());
 
-$('clear-btn').addEventListener('click', resetChat);
+// Clearing the transcript must clear what's on disk as well — otherwise
+// "clear" only blanks the screen and the next reload brings it all back.
+// A new sessionId also starts a fresh server-side conversation, so the
+// model stops seeing the cleared turns too.
+$('clear-btn').addEventListener('click', async () => {
+  await convStore.clearNamespace(state.ns);
+  state.sessionId = null;
+  resetChat();
+});
+
+// Re-opens this identity's encrypted store and replays it into the
+// transcript. Failure is never fatal: a browser with IndexedDB disabled (or
+// a private window that refuses it) must still be able to hold a
+// conversation, just without one that survives a reload.
+async function restoreConversation() {
+  try {
+    state.ns = await convStore.open({ username: state.username, org: state.org, role: state.role });
+    const turns = await convStore.load(state.ns);
+    if (!turns.length) return;
+    for (const turn of turns) {
+      addMessage('user', turn.question);
+      addMessage('assistant', turn.answer, turn.meta);
+      // The server-side conversation this cache mirrors. Restoring it is
+      // what makes the *model* remember the reloaded turns, not just the UI.
+      if (turn.sessionId) state.sessionId = turn.sessionId;
+    }
+  } catch (e) {
+    state.ns = null;
+  }
+}
+
+// Stores one completed exchange. Only the fields the transcript actually
+// re-renders are kept — not graph_data or execution_steps, which are large,
+// regenerated on the next query anyway, and would put retrieved document
+// structure on disk for no user-visible gain.
+function persistTurn(question, resp) {
+  if (!state.ns) return;
+  const meta = {
+    blocked: resp.blocked,
+    block_reason: resp.block_reason,
+    guardrail_findings: resp.guardrail_findings,
+    injection_flags_detected: resp.injection_flags_detected,
+    citations: resp.citations,
+  };
+  convStore
+    .append(state.ns, { question, answer: resp.answer, meta, sessionId: state.sessionId })
+    .catch(() => { /* a cache write must never break the conversation */ });
+}
 
 function resetChat() {
   $('messages').innerHTML = `
@@ -910,7 +1122,15 @@ async function sendQuery() {
   try {
     const headers = { 'content-type': 'application/json' };
     if (state.token) headers['authorization'] = `Bearer ${state.token}`;
-    const response = await fetch('/query/stream', { method: 'POST', headers, body: JSON.stringify({ question }) });
+    // session_id was always accepted by the route and always returned in
+    // the done event (QueryResponse.session_id) — the SPA just never sent it
+    // back, so every question was turn one and the backend's session history
+    // was written to a fresh id nothing would read again.
+    const response = await fetch('/query/stream', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ question, session_id: state.sessionId }),
+    });
     if (!response.ok || !response.body) {
       let body = null;
       try { body = await response.json(); } catch (e) { /* no JSON body */ }
@@ -937,7 +1157,15 @@ async function sendQuery() {
 
     pending.remove();
     if (!resp) throw new Error('Stream ended without a result.');
+    if (resp.session_id) state.sessionId = resp.session_id;
     addMessage('assistant', resp.answer, resp);
+    // Mirrors _cacheable() in api/routes.py: a blocked response is never
+    // persisted. Its text is a generic refusal with nothing worth keeping,
+    // and writing compliance-blocked material to the user's disk is exactly
+    // what the block exists to prevent.
+    if (!resp.blocked) {
+      persistTurn(question, resp);
+    }
 
     // Render Canvas Views — the server's final execution_steps/graph_data
     // are authoritative, replacing the incrementally-built live preview.
