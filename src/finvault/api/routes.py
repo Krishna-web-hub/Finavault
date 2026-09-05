@@ -61,6 +61,7 @@ from finvault.metrics import (
 from finvault.models import ROLE_RANK, Classification, Role, User
 from finvault.observability import capture_context, extra_fields, get_logger, log_exception, run_in_request_context
 from finvault.security.access_control import require_clearance
+from finvault.security.quarantine import QuarantineRecord
 from finvault.security.review_queue import ReviewItem
 
 logger = get_logger(__name__)
@@ -668,6 +669,96 @@ def health(request: Request) -> dict[str, str]:
         "status": "ok",
         "cache": "up" if cache is not None and cache.available else "degraded",
     }
+
+
+class QuarantineRequest(BaseModel):
+    reason: str | None = None
+
+
+class QuarantineRecordResponse(BaseModel):
+    document_id: str
+    org_id: str
+    reason: str | None
+    status: str
+    quarantined_by: str
+    quarantined_at: float
+    released_by: str | None = None
+    released_at: float | None = None
+
+
+def _to_quarantine_response(record: QuarantineRecord) -> QuarantineRecordResponse:
+    return QuarantineRecordResponse(
+        document_id=record.document_id,
+        org_id=record.org_id,
+        reason=record.reason,
+        status=record.status,
+        quarantined_by=record.quarantined_by,
+        quarantined_at=record.quarantined_at,
+        released_by=record.released_by,
+        released_at=record.released_at,
+    )
+
+
+@router.post("/compliance/quarantine/{document_id}", response_model=QuarantineRecordResponse)
+def quarantine_document(
+    document_id: str, payload: QuarantineRequest, request: Request, user: User = Depends(get_current_user)
+) -> QuarantineRecordResponse:
+    """Stops a document being retrieved — see security/quarantine.py.
+
+    Compliance-officer only, and deliberately manual: the injection
+    heuristic that surfaces a suspect document can false-positive (a real
+    policy document quoting "ignore previous instructions" as an example of
+    what to watch for), and auto-quarantining on it would silently remove
+    legitimate material from the corpus.
+
+    Bumps the org's corpus generation, because answers cached before this
+    call may have been grounded in the document being quarantined — a TTL
+    alone would keep serving them (see cache.py and _query_cache_key).
+    """
+    _require_compliance_role(user)
+    record = request.app.state.quarantine_store.quarantine(
+        document_id=document_id, org_id=user.org_id, reason=payload.reason, actor=user.id
+    )
+    bump_corpus_generation(request.app.state.cache, user.org_id)
+    request.app.state.audit_log.append(
+        actor=user.id,
+        action="document_quarantined",
+        resource=document_id,
+        details={"reason": payload.reason},
+    )
+    logger.warning("document_quarantined", extra=extra_fields(document_id=document_id, actor=user.id))
+    return _to_quarantine_response(record)
+
+
+@router.post("/compliance/quarantine/{document_id}/release", response_model=QuarantineRecordResponse)
+def release_document(
+    document_id: str, request: Request, user: User = Depends(get_current_user)
+) -> QuarantineRecordResponse:
+    """Returns a quarantined document to the corpus.
+
+    A status change, not a delete, so the original quarantine decision
+    stays on the record — the same append-only posture as the review queue.
+    """
+    _require_compliance_role(user)
+    record = request.app.state.quarantine_store.release(document_id=document_id, org_id=user.org_id, actor=user.id)
+    if record is None:
+        raise NotFoundError(
+            "No quarantine record for that document",
+            context={"document_id": document_id},
+        )
+    bump_corpus_generation(request.app.state.cache, user.org_id)
+    request.app.state.audit_log.append(actor=user.id, action="document_released", resource=document_id, details={})
+    return _to_quarantine_response(record)
+
+
+@router.get("/compliance/quarantine", response_model=list[QuarantineRecordResponse])
+def list_quarantined_documents(
+    request: Request, user: User = Depends(get_current_user)
+) -> list[QuarantineRecordResponse]:
+    """Currently-quarantined documents for the caller's org."""
+    _require_compliance_role(user)
+    records = request.app.state.quarantine_store.list_quarantined(org_id=user.org_id)
+    return [_to_quarantine_response(record) for record in records]
 
 
 @router.get("/metrics", include_in_schema=False)

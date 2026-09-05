@@ -95,6 +95,7 @@ RLS_TABLES: dict[str, str] = {
     "review_queue": "org_id",
     "graph_nodes": "org_id",
     "graph_edges": "org_id",
+    "quarantined_documents": "org_id",
 }
 
 POLICY_NAME = "finvault_tenant_isolation"

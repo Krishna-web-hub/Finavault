@@ -29,6 +29,7 @@ from finvault.retrieval.vector_store import VectorStore
 from finvault.security.access_control import check_clearance
 from finvault.security.audit import AuditLog
 from finvault.security.encryption import EncryptedPayload, EnvelopeEncryptor, chunk_aad
+from finvault.security.quarantine import QuarantineStore
 
 # Reciprocal Rank Fusion constant — the standard default from the RRF
 # literature (Cormack et al.), not tuned for this corpus. Larger k flattens
@@ -65,6 +66,7 @@ class Retriever:
         audit_log: AuditLog,
         use_hybrid_rerank: bool = True,
         reranker: Reranker | None = None,
+        quarantine_store: QuarantineStore | None = None,
     ) -> None:
         self._vector_store = vector_store
         self._embedding_provider = embedding_provider
@@ -76,19 +78,37 @@ class Retriever:
         # candidate rather than BM25's near-zero cost. Callers opt in
         # explicitly (see api/main.py's FINVAULT_ENABLE_CROSS_ENCODER_RERANK).
         self._reranker = reranker
+        # Optional — see security/quarantine.py. None means no document is
+        # ever excluded, exactly as before this feature existed.
+        self._quarantine_store = quarantine_store
 
     def retrieve(self, query: str, *, user: User, top_k: int = 5) -> list[RetrievedChunk]:
         query_vector = self._embedding_provider.embed([query])[0]
         hits = self._vector_store.search(query_vector, top_k=top_k, org_id=user.org_id)
 
+        # Fetched once per call rather than per hit: retrieval filters a
+        # whole page of results, so one query beats top_k of them.
+        quarantined = self._quarantined_ids(org_id=user.org_id)
+
         results: list[RetrievedChunk] = []
         denied = 0
         model_mismatches = 0
+        quarantined_dropped = 0
         for hit in hits:
             payload = hit.payload
             classification = Classification(payload["classification"])
             if not check_clearance(user.role, classification):
                 denied += 1
+                continue
+
+            # Dropped before the ACL-cleared text is ever decrypted, let
+            # alone assembled into a prompt. Unlike an over-classification
+            # withholding (see agents/retriever_agent.py), no marker is
+            # emitted in its place: a quarantined document is one an
+            # operator has judged hostile, and naming it back into the
+            # model's context is the thing quarantine exists to stop.
+            if payload["document_id"] in quarantined:
+                quarantined_dropped += 1
                 continue
 
             # A chunk embedded by a different model than the one currently
@@ -135,6 +155,7 @@ class Retriever:
                 "query": query,
                 "returned": len(results),
                 "denied_by_clearance": denied,
+                "quarantined_dropped": quarantined_dropped,
                 "embedding_model_mismatches": model_mismatches,
                 "hybrid_reranked": hybrid_applied,
             },
@@ -154,6 +175,14 @@ class Retriever:
         Same non-inference posture as retrieve(): returns None (not found,
         wrong org, or ACL-denied) rather than distinguishing those cases.
         """
+        # Quarantine applies to every path that yields plaintext, not just
+        # semantic retrieval — the comparison route reaches documents by id,
+        # which would otherwise walk straight around the filter in
+        # retrieve(). Returns None like any other denial: same
+        # non-inference posture as the docstring describes.
+        if document_id in self._quarantined_ids(org_id=user.org_id):
+            return None
+
         hits = self._vector_store.get_by_document(document_id, org_id=user.org_id)
         if not hits:
             return None
@@ -175,6 +204,15 @@ class Retriever:
             actor=user.id, action="get_document_text", resource=document_id, details={"chunks": len(pieces)}
         )
         return RetrievedDocument(document_id=document_id, title=title, text="\n\n".join(pieces))
+
+    def _quarantined_ids(self, *, org_id: str) -> set[str]:
+        """Empty set when no store is configured, so every call site can
+        treat quarantine as an ordinary filter instead of branching on
+        whether the feature is wired up.
+        """
+        if self._quarantine_store is None:
+            return set()
+        return self._quarantine_store.quarantined_ids(org_id=org_id)
 
     def _hybrid_rerank(self, query: str, results: list[RetrievedChunk]) -> list[RetrievedChunk]:
         """Fuses the existing vector-similarity order with a BM25 lexical

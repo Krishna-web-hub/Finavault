@@ -70,6 +70,21 @@ sessions_table = Table(
     Column("created_at", Float, nullable=False),
 )
 
+quarantined_documents_table = Table(
+    "quarantined_documents",
+    metadata,
+    # document_id is the primary key: quarantine is per document, never per
+    # chunk (see security/quarantine.py for why chunk-level is evadable).
+    Column("document_id", String, primary_key=True),
+    Column("org_id", String, nullable=False, index=True),
+    Column("reason", String, nullable=True),
+    Column("status", String, nullable=False),
+    Column("quarantined_by", String, nullable=False),
+    Column("quarantined_at", Float, nullable=False),
+    Column("released_by", String, nullable=True),
+    Column("released_at", Float, nullable=True),
+)
+
 review_queue_table = Table(
     "review_queue",
     metadata,

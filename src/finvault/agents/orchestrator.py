@@ -400,12 +400,19 @@ class Orchestrator:
         citation_dicts = [c.model_dump() for c in parsed.citations]
 
         def run_compliance() -> ComplianceVerdict:
+            # self._injection_flags is fully populated by now: the
+            # search_documents closure extends it on every retrieval, and
+            # every retrieval happened inside the agent.run() call above.
+            # Passing it turns detection into enforcement — before this,
+            # the flags reached the audit log and the API response but
+            # never the one component with veto power.
             return self._compliance_agent.review_output(
                 question=question,
                 draft_answer=parsed.answer,
                 max_classification=max_classification,
                 citations=citation_dicts,
                 context=self._last_context,
+                injection_flags=self._injection_flags,
             )
 
         # verdict.reason is designed to be safe to surface (see

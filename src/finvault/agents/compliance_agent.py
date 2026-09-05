@@ -2,15 +2,21 @@
 answer, not exposed as a tool the orchestrating LLM could choose to call or
 skip. This is what gives it real veto power over what reaches the user.
 
-Four checks, in order, any of which can block the response:
+Five checks, in order, any of which can block the response:
 1. Externalization policy — was anything above the allowed classification
    ceiling retrieved this turn? (checked before this even runs, by whoever
    determined `max_classification`)
 2. Deterministic PII/secret pattern scan + redaction on the draft text.
-3. Citation verification — does each citation's quoted text actually appear
+3. Prompt-injection flags raised by the retriever on this turn's context.
+   `detect_injection_attempt` has always run at retrieval time, but its
+   findings only ever reached the audit log — they changed nothing about
+   what was served. They are enforcement now: a flagged turn blocks and
+   goes to the review queue, so a human decides whether the document is
+   hostile (and quarantines it — security/quarantine.py) or benign.
+4. Citation verification — does each citation's quoted text actually appear
    in the retrieved context the Analyst was given? Catches hallucinated or
    ungrounded claims a semantic review might not.
-4. A lightweight LLM semantic review for violations regex can't catch
+5. A lightweight LLM semantic review for violations regex can't catch
    (e.g. content that reads as hijacked by an injected instruction).
 """
 
@@ -119,6 +125,7 @@ class ComplianceAgent:
         max_classification: Classification,
         citations: list[dict] | None = None,
         context: str | None = None,
+        injection_flags: list[dict] | None = None,
     ) -> ComplianceVerdict:
         try:
             enforce_externalization_policy(max_classification, allowed=settings.allowed_external_classifications)
@@ -132,6 +139,45 @@ class ComplianceAgent:
 
         scan = scan_and_redact(draft_answer)
         findings = [f.kind for f in scan.findings]
+
+        # Blocks on the *presence* of a flagged chunk in this turn's
+        # retrieved context, not on proof that it influenced the answer —
+        # there is no reliable way to establish that influence after the
+        # fact, and the safe default under uncertainty is the one that
+        # fails closed. The cost of that choice is false positives on
+        # benign questions that happen to retrieve the same chunk, which is
+        # precisely what the review queue absorbs: a human sees the draft,
+        # judges the document, and either releases the answer or
+        # quarantines the source so it stops recurring.
+        #
+        # Placed before citation verification and semantic review so a
+        # poisoned turn short-circuits without spending the LLM call, and
+        # after the PII scan so `findings` is populated on this path too.
+        if injection_flags:
+            documents = sorted({str(flag.get("document", "unknown")) for flag in injection_flags})
+            logger.warning(
+                "compliance_injection_blocked",
+                extra=extra_fields(flagged_documents=documents, flag_count=len(injection_flags)),
+            )
+            compliance_verdicts_total.labels(verdict="blocked", reason="prompt_injection").inc()
+            return ComplianceVerdict(
+                allowed=False,
+                redacted_answer="",
+                findings=[*findings, "prompt_injection"],
+                # Deliberately does not name the flagged documents: this
+                # string is surfaced to the end user (see orchestrator.py,
+                # which passes verdict.reason through as block_reason and
+                # into the execution trace). The document titles and chunk
+                # ids are already in the audit entry and the review queue,
+                # where a compliance officer needs them.
+                reason=(
+                    f"Compliance blocked: {len(injection_flags)} prompt-injection pattern(s) were "
+                    "detected in the source material retrieved for this question. The response has "
+                    "been queued for manual review."
+                ),
+                reviewable_answer=draft_answer,
+            )
+
         # Citation verification only runs when both citations and the
         # context they should be grounded in are available — a plain-text
         # fallback answer (Analyst never called submit_answer) has neither

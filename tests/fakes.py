@@ -185,13 +185,17 @@ class FakeRetrieverAgent:
         result: str = "Retrieved context: Q3 revenue was $10 million.",
         max_classification: Classification = Classification.INTERNAL,
         retrieved_document_ids: set[str] | None = None,
+        injection_flags: list[dict] | None = None,
     ) -> None:
         self._result = result
         self.max_classification_seen = max_classification
         self.retrieved_document_ids = retrieved_document_ids or set()
+        # Shape matches what the real RetrieverAgent appends per flagged
+        # chunk (see agents/retriever_agent.py): document, chunk_id, patterns.
+        self._injection_flags = injection_flags or []
 
     def run(self, query: str, *, budget=None) -> tuple[str, list[dict]]:
-        return self._result, []
+        return self._result, list(self._injection_flags)
 
 
 class FakeAnalystAgent:

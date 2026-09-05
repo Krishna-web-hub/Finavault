@@ -162,26 +162,33 @@
     <div class="node node--gate" style="--i:7">
       <span class="node-idx">08</span>
       <h3 class="node-title">Guardrails</h3>
-      <span class="node-tag">delimiter + injection heuristic</span>
+      <span class="node-tag">delimiter + injection heuristic &rarr; compliance veto</span>
     </div>
     <div class="connector" style="--i:7"><span class="dot"></span></div>
 
-    <div class="node" style="--i:8">
+    <div class="node node--gate" style="--i:8">
       <span class="node-idx">09</span>
+      <h3 class="node-title">Quarantine</h3>
+      <span class="node-tag">operator removes a poisoned document</span>
+    </div>
+    <div class="connector" style="--i:8"><span class="dot"></span></div>
+
+    <div class="node" style="--i:9">
+      <span class="node-idx">10</span>
       <h3 class="node-title">Audit write</h3>
       <span class="node-tag">hash-chained, append-only</span>
     </div>
     <div class="connector" style="--i:9"><span class="dot"></span></div>
 
-    <div class="node" style="--i:9">
-      <span class="node-idx">10</span>
+    <div class="node" style="--i:10">
+      <span class="node-idx">11</span>
       <h3 class="node-title">Error boundary</h3>
       <span class="node-tag">vetted message out, detail to logs</span>
     </div>
   </div>
 
   <div class="wf-foot">
-    <span>finvault · security/encryption.py · access_control.py · guardrails.py · audit.py · rls.py · errors.py · api/error_handlers.py · api/rate_limit.py</span>
-    <span>rev 2026-08-31</span>
+    <span>finvault · security/encryption.py · access_control.py · guardrails.py · quarantine.py · audit.py · rls.py · errors.py · api/error_handlers.py · api/rate_limit.py</span>
+    <span>rev 2026-09-06</span>
   </div>
 </div>

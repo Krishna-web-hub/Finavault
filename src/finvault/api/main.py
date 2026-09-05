@@ -48,10 +48,12 @@ from finvault.retrieval.retriever import Retriever
 from finvault.retrieval.vector_store import QdrantStore
 from finvault.security.audit import PostgresAuditLog
 from finvault.security.encryption import EnvelopeEncryptor, LocalKeyProvider
+from finvault.security.quarantine import PostgresQuarantineStore
 from finvault.security.review_queue import PostgresReviewQueue
 from finvault.security.rls import enable_row_level_security, install_org_scoping, verify_isolation
 
 logger = get_logger(__name__)
+
 
 def _resolve_frontend_dir() -> Path:
     for candidate in [
@@ -130,6 +132,8 @@ async def lifespan(app: FastAPI):
     app.state.vector_store = vector_store
     app.state.audit_log = audit_log
     app.state.session_store = PostgresSessionStore(engine)
+    quarantine_store = PostgresQuarantineStore(engine)
+    app.state.quarantine_store = quarantine_store
     app.state.review_queue = PostgresReviewQueue(engine)
     reranker = (
         LocalCrossEncoderReranker(settings.finvault_cross_encoder_model)
@@ -142,6 +146,7 @@ async def lifespan(app: FastAPI):
         encryptor=encryptor,
         audit_log=audit_log,
         reranker=reranker,
+        quarantine_store=quarantine_store,
     )
     classification_suggester = ClassificationSuggester(embedding_provider)
     app.state.classification_suggester = classification_suggester

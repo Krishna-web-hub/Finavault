@@ -24,6 +24,7 @@ from finvault.config import settings
 from finvault.db import init_db
 from finvault.retrieval.graph_store import PostgresGraphStore, edge_aad, label_hash, node_aad
 from finvault.security.encryption import EnvelopeEncryptor, LocalKeyProvider
+from finvault.security.quarantine import PostgresQuarantineStore
 from finvault.security.review_queue import PostgresReviewQueue, ReviewQueueError
 
 
@@ -282,3 +283,73 @@ def test_add_edge_persists_and_round_trips(engine, encryptor) -> None:
     assert edges[0].id == edge_id
     assert edges[0].source_node_id == source.id
     assert edges[0].target_node_id == target.id
+
+
+# --- PostgresQuarantineStore ---
+#
+# The in-memory store (tests/test_quarantine.py) can't cover these: what's
+# under test is the SQL itself — the insert-vs-update branch, the
+# rowcount==0 path on release, and the org predicate on every statement.
+
+
+def test_quarantine_roundtrip_and_org_isolation(engine) -> None:
+    store = PostgresQuarantineStore(engine)
+    org_id = str(uuid.uuid4())
+    other_org = str(uuid.uuid4())
+    document_id = str(uuid.uuid4())
+
+    record = store.quarantine(document_id=document_id, org_id=org_id, reason="injection", actor="officer")
+
+    assert record.status == "quarantined"
+    assert store.quarantined_ids(org_id=org_id) == {document_id}
+    assert store.quarantined_ids(org_id=other_org) == set()
+    assert [r.document_id for r in store.list_quarantined(org_id=org_id)] == [document_id]
+
+
+def test_release_clears_the_document_from_retrieval_exclusion(engine) -> None:
+    store = PostgresQuarantineStore(engine)
+    org_id = str(uuid.uuid4())
+    document_id = str(uuid.uuid4())
+    store.quarantine(document_id=document_id, org_id=org_id, reason=None, actor="officer")
+
+    released = store.release(document_id=document_id, org_id=org_id, actor="officer")
+
+    assert released is not None
+    assert released.status == "released"
+    assert released.released_by == "officer"
+    assert store.quarantined_ids(org_id=org_id) == set()
+
+
+def test_release_of_an_unknown_document_returns_none(engine) -> None:
+    store = PostgresQuarantineStore(engine)
+    assert store.release(document_id=str(uuid.uuid4()), org_id=str(uuid.uuid4()), actor="officer") is None
+
+
+def test_another_org_cannot_release_our_quarantine(engine) -> None:
+    store = PostgresQuarantineStore(engine)
+    org_id = str(uuid.uuid4())
+    document_id = str(uuid.uuid4())
+    store.quarantine(document_id=document_id, org_id=org_id, reason=None, actor="officer")
+
+    assert store.release(document_id=document_id, org_id=str(uuid.uuid4()), actor="intruder") is None
+    assert store.quarantined_ids(org_id=org_id) == {document_id}
+
+
+def test_requarantine_after_release_clears_stale_release_metadata(engine) -> None:
+    """The UPDATE branch. Without explicitly nulling released_by/released_at,
+    a re-quarantined row would still carry the previous release's metadata
+    and read as released to anyone inspecting the table.
+    """
+    store = PostgresQuarantineStore(engine)
+    org_id = str(uuid.uuid4())
+    document_id = str(uuid.uuid4())
+    store.quarantine(document_id=document_id, org_id=org_id, reason="first", actor="officer")
+    store.release(document_id=document_id, org_id=org_id, actor="officer")
+
+    store.quarantine(document_id=document_id, org_id=org_id, reason="second", actor="officer2")
+
+    record = store.list_quarantined(org_id=org_id)[0]
+    assert record.released_at is None
+    assert record.released_by is None
+    assert record.reason == "second"
+    assert record.quarantined_by == "officer2"
