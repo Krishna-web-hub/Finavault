@@ -55,6 +55,28 @@ class Settings(BaseSettings):
     # searches on a blunter query than the model would have written. Any
     # replacement default must be probed the same way first.
     finvault_model: str = "minimax/minimax-m2.7:free"
+    # Per-agent model specialization (falls back to finvault_model if unset)
+    finvault_orchestrator_model: str | None = None
+    finvault_retriever_model: str | None = None
+    finvault_analyst_model: str | None = None
+    finvault_compliance_model: str | None = None
+
+    @property
+    def orchestrator_model(self) -> str:
+        return self.finvault_orchestrator_model or self.finvault_model
+
+    @property
+    def retriever_model(self) -> str:
+        return self.finvault_retriever_model or self.finvault_model
+
+    @property
+    def analyst_model(self) -> str:
+        return self.finvault_analyst_model or self.finvault_model
+
+    @property
+    def compliance_model(self) -> str:
+        return self.finvault_compliance_model or self.finvault_model
+
     finvault_max_tokens: int = 4096
 
     # Ceiling for ComplianceAgent's semantic-review call. Its own setting,

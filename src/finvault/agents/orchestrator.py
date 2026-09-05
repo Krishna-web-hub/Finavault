@@ -112,6 +112,10 @@ class Orchestrator:
         user: User,
         audit_log: AuditLog,
         model: str | None = None,
+        orchestrator_model: str | None = None,
+        retriever_model: str | None = None,
+        analyst_model: str | None = None,
+        compliance_model: str | None = None,
         compliance_agent: ComplianceAgent | None = None,
         client: OpenAI | None = None,
         retriever_agent: RetrieverAgent | None = None,
@@ -131,13 +135,22 @@ class Orchestrator:
         # Optional — see retrieval/graph_retriever.py. None means graph_data
         # stays empty on every result, exactly as before this feature existed.
         self._graph_retriever = graph_retriever
+
+        # Resolve per-agent models with fallback: explicit -> model -> config
+        self._orchestrator_model = orchestrator_model or model or settings.orchestrator_model
+        self._retriever_model = retriever_model or model or settings.retriever_model
+        self._analyst_model = analyst_model or model or settings.analyst_model
+        self._compliance_model = compliance_model or model or settings.compliance_model
+
         # retriever_agent/analyst_agent are injectable (mirroring
         # compliance_agent below) so tests can substitute controllable fakes
         # without standing up a full retrieval pipeline; production callers
         # just pass `retriever` and let these build normally.
-        self._retriever_agent = retriever_agent or RetrieverAgent(retriever=retriever, user=user, model=model)  # type: ignore[arg-type]
-        self._analyst_agent = analyst_agent or AnalystAgent(model=model)
-        self._compliance_agent = compliance_agent or ComplianceAgent(model=model)
+        self._retriever_agent = retriever_agent or RetrieverAgent(
+            retriever=retriever, user=user, model=self._retriever_model
+        )  # type: ignore[arg-type]
+        self._analyst_agent = analyst_agent or AnalystAgent(model=self._analyst_model)
+        self._compliance_agent = compliance_agent or ComplianceAgent(model=self._compliance_model)
         # Optional — see agents/session.py. None means stateless, single-turn
         # behavior, exactly as before this feature existed.
         self._session_store = session_store
@@ -189,7 +202,7 @@ class Orchestrator:
         self._agent = Agent(
             name="orchestrator",
             system_prompt=SYSTEM_PROMPT,
-            model=model,
+            model=self._orchestrator_model,
             client=client,
             final_tool="analyze",
             # A prompt instruction alone wasn't reliable enough: observed

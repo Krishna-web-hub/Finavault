@@ -101,7 +101,7 @@ class ComplianceAgent:
         semantic_review: bool = True,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        self._model = model or settings.finvault_model
+        self._model = model or settings.compliance_model
         self._client = client or _client()
         self._semantic_review = semantic_review
         # Injectable so tests can exercise the retry path without sleeping.
@@ -132,7 +132,6 @@ class ComplianceAgent:
 
         scan = scan_and_redact(draft_answer)
         findings = [f.kind for f in scan.findings]
-
         # Citation verification only runs when both citations and the
         # context they should be grounded in are available — a plain-text
         # fallback answer (Analyst never called submit_answer) has neither
